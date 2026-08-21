@@ -1,0 +1,5 @@
+
+enum AuthRole {
+  promoter,
+  business,
+}
