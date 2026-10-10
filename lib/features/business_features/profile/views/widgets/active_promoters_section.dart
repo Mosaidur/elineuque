@@ -40,11 +40,52 @@ class ActivePromotersSection extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        // ── Promoters List ──
-        Column(
-          children: promoters.map((promoter) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+        // ── Promoters List / Empty State ──
+        if (promoters.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF092942),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF1B4968),
+                width: 0.8,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.group_outlined,
+                  size: 36,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'No active promoters yet',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Promoters will appear here when they share your campaigns.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: promoters.map((promoter) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
               child: Container(
                 width: double.infinity,
                 padding:

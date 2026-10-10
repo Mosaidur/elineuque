@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:elineuque/features/promoter_features/home/controllers/home_controller.dart';
@@ -7,8 +8,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    Get.testMode = true;
     Get.reset();
+    Get.testMode = true;
   });
 
   tearDown(() {
@@ -16,22 +17,32 @@ void main() {
   });
 
   group('HomeController Tests', () {
-    test('HomeController initializes default user stats and lists', () {
+    test('HomeController initializes dynamic user stats and lists', () {
       final controller = HomeController();
       Get.put(controller);
 
-      expect(controller.userName.value, 'Devon Rivera');
-      expect(controller.greeting.value, 'Good morning 👋');
-      expect(controller.totalEarnings.value, '\$1,840.00');
-      expect(controller.thisMonthEarnings.value, '+\$420');
-      expect(controller.totalReferrals.value, '92');
-      expect(controller.convertedCount.value, '78');
-      expect(controller.hasUnreadNotifications.value, true);
+      expect(controller.userName.value, 'Promoter');
+      expect(controller.greeting.value.startsWith('Good '), true);
+      expect(controller.totalEarnings.value, '\$0.00');
+      expect(controller.thisMonthEarnings.value, '+\$0');
+      expect(controller.totalReferrals.value, '0');
+      expect(controller.convertedCount.value, '0');
+      expect(controller.hasUnreadNotifications.value, false);
 
-      expect(controller.featuredDeals.length, 3);
-      expect(controller.miniBusinesses.length, 3);
-      expect(controller.recentReferrals.length, 3);
+      expect(controller.featuredDeals.isEmpty, true);
+      expect(controller.miniBusinesses.isEmpty, true);
+      expect(controller.recentReferrals.isEmpty, true);
 
+      controller.recentReferrals.add(const RecentReferral(
+        name: 'Marcus J.',
+        initials: 'M',
+        avatarColor: Color(0xFF4A68FF),
+        businessName: 'FitZone Gym',
+        timeAgo: '2h ago',
+        amount: '\$40',
+        status: ReferralStatus.paid,
+      ));
+      expect(controller.recentReferrals.length, 1);
       final firstReferral = controller.recentReferrals.first;
       expect(firstReferral.name, 'Marcus J.');
       expect(firstReferral.status, ReferralStatus.paid);
@@ -50,6 +61,7 @@ void main() {
       final controller = HomeController();
       Get.put(controller);
 
+      controller.hasUnreadNotifications.value = true;
       expect(controller.hasUnreadNotifications.value, true);
       controller.onNotificationTap();
       expect(controller.hasUnreadNotifications.value, false);

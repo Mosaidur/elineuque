@@ -1,98 +1,92 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-
 import '../../../../app/routes/routes.dart';
 import '../../../../app/theme/theme.dart';
 import '../../../../core/enums/auth_role.dart';
+import '../providers/auth_provider.dart';
 
-class ForgetPasswordController extends GetxController {
-  late AuthRole role;
+class ForgetPasswordController extends ChangeNotifier {
+  AuthRole _role = AuthRole.promoter;
+  final TextEditingController emailController = TextEditingController();
+  bool _isLoading = false;
 
-  final emailController = TextEditingController();
-  final isLoading = false.obs;
+  AuthRole get role => _role;
+  set role(AuthRole r) => initRole(r);
+  bool get isLoading => _isLoading;
+  bool get isBusiness => _role == AuthRole.business;
 
-  @override
-  void onInit() {
-    super.onInit();
+  Color get primaryColor => isBusiness ? AppColors.businessPrimary : AppColors.promoterPrimary;
+  Color get iconBackground => isBusiness ? AppColors.iconGreen : AppColors.iconBlue;
+  Color get iconColor => isBusiness ? AppColors.businessPrimary : AppColors.promoterPrimary;
 
-    final dynamic args = Get.arguments;
-    if (args is AuthRole) {
-      role = args;
-    } else if (args is Map && args['role'] is AuthRole) {
-      role = args['role'] as AuthRole;
-    } else {
-      role = AuthRole.promoter;
-    }
-
-    debugPrint('ForgetPasswordController initialized with role: $role');
+  void initRole(AuthRole role) {
+    if (_role == role) return;
+    _role = role;
+    notifyListeners();
   }
 
-  bool get isBusiness => role == AuthRole.business;
-
-  Color get primaryColor {
-    return isBusiness
-        ? AppColors.businessPrimary
-        : AppColors.promoterPrimary;
-  }
-
-  Color get iconBackground {
-    return isBusiness
-        ? AppColors.iconGreen
-        : AppColors.iconBlue;
-  }
-
-  Color get iconColor {
-    return isBusiness
-        ? AppColors.businessPrimary
-        : AppColors.promoterPrimary;
-  }
-
-  void sendResetLink() {
+  Future<void> sendResetLink(BuildContext context, AuthProvider authProvider) async {
     final email = emailController.text.trim();
 
     if (email.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter your email address',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.card,
-        colorText: AppColors.white,
-      );
+      _showSnackbar(context, 'Please enter your email address', isError: true);
       return;
     }
 
-    if (!GetUtils.isEmail(email)) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a valid email address',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.card,
-        colorText: AppColors.white,
-      );
+    final bool isEmailValid = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+    if (!isEmailValid) {
+      _showSnackbar(context, 'Please enter a valid email address', isError: true);
       return;
     }
 
-    debugPrint('Sending password reset link to $email for role: $role');
+    _isLoading = true;
+    notifyListeners();
 
-    Get.toNamed(
-      AppRoutes.sendEmail,
-      arguments: {
-        'role': role,
-        'email': email,
-      },
+    final response = await authProvider.forgotPassword(email: email);
+
+    _isLoading = false;
+    notifyListeners();
+
+    if (!context.mounted) return;
+
+    if (response.success) {
+      _showSnackbar(context, response.message, isError: false);
+      Navigator.pushNamed(
+        context,
+        AppRoutes.sendEmail,
+        arguments: {
+          'role': _role,
+          'email': email,
+        },
+      );
+    } else {
+      _showSnackbar(context, response.message, isError: true);
+    }
+  }
+
+  void backToSignIn(BuildContext context) {
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.signIn,
+      arguments: _role,
     );
   }
 
-  void backToSignIn() {
-    Get.offNamed(
-      AppRoutes.signIn,
-      arguments: role,
+  void _showSnackbar(BuildContext context, String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: isError ? Colors.red.shade900 : Colors.green.shade800,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
   @override
-  void onClose() {
+  void dispose() {
     emailController.dispose();
-    super.onClose();
+    super.dispose();
   }
 }
+
+typedef ForgetPassController = ForgetPasswordController;

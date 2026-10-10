@@ -1,32 +1,65 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-import 'package:get/get.dart';
-
+import 'package:flutter/material.dart';
 import '../../../../app/routes/routes.dart';
+import '../../../../core/services/storage_service.dart';
 
-class SplashController extends GetxController {
+class SplashScreenController extends ChangeNotifier {
   Timer? _timer;
 
-  @override
-  void onInit() {
-    super.onInit();
+  void startSplashTimer(BuildContext context) => initialize(context);
 
-    debugPrint('SplashController initialized');
-
+  void initialize(BuildContext context) {
+    _timer?.cancel();
     _timer = Timer(
-      const Duration(seconds: 3),
+      const Duration(milliseconds: 1500),
       () {
-        debugPrint('Timer finished');
-        debugPrint('Navigating to: ${AppRoutes.roleSelection}');
+        if (!context.mounted) return;
+        final isLoggedIn = StorageService.isLoggedIn();
+        final token = StorageService.getAccessToken();
+        final role = StorageService.getRole()?.toUpperCase();
 
-        Get.offNamed(AppRoutes.roleSelection);
+        debugPrint('Splash check - isLoggedIn: $isLoggedIn, token: ${token != null ? "exists" : "null"}, role: $role');
+
+        if (isLoggedIn && token != null && token.isNotEmpty) {
+          if (role == 'BUSINESS_OWNER' || role == 'BUSINESS') {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.businessDashboard,
+              (route) => false,
+            );
+            return;
+          } else if (role == 'PROMOTER') {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.home,
+              (route) => false,
+            );
+            return;
+          } else {
+            // Role unknown but logged in - fallback safely to role selection or dashboard
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.businessDashboard,
+              (route) => false,
+            );
+            return;
+          }
+        }
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.roleSelection,
+          (route) => false,
+        );
       },
     );
   }
 
   @override
-  void onClose() {
+  void dispose() {
     _timer?.cancel();
-    super.onClose();
+    super.dispose();
   }
 }
+
+typedef SplashController = SplashScreenController;

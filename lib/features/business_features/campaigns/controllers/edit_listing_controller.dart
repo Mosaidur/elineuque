@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_constants.dart';
 import '../../dashboard/controllers/business_dashboard_controller.dart';
 import '../models/campaign_listing_model.dart';
 
-class EditListingController extends GetxController {
+class EditListingController extends ChangeNotifier {
   // Tab index: 0 = Basic, 1 = Details, 2 = Rewards
-  final selectedTab = 0.obs;
+  int _selectedTab = 0;
+  bool _isLoading = false;
+
+  int get selectedTab => _selectedTab;
+  bool get isLoading => _isLoading;
 
   // ── Basic Tab ──
-  final isLogoUploaded = true.obs;
-  late final TextEditingController businessNameController;
-  final selectedCategory = 'Fitness'.obs;
-  late final TextEditingController descriptionController;
+  bool isLogoUploaded = true;
+  final businessNameController = TextEditingController(text: 'FitZone Gym');
+  String selectedCategory = 'Fitness';
+  final descriptionController = TextEditingController(
+    text: "San Francisco's premium functional fitness gym. State-of-the-art equipment, expert coaches, and a community that shows",
+  );
 
   final categories = const [
     'Café',
@@ -26,10 +35,10 @@ class EditListingController extends GetxController {
   ];
 
   // ── Details Tab ──
-  late final TextEditingController addressController;
-  late final TextEditingController phoneController;
-  late final TextEditingController websiteController;
-  final selectedHours = 'Open until 10pm'.obs;
+  final addressController = TextEditingController(text: '480 Brannan St, SF');
+  final phoneController = TextEditingController(text: '+1 415 555 0202');
+  final websiteController = TextEditingController(text: 'fitzonegym.com');
+  String selectedHours = 'Open until 10pm';
 
   final hoursOptions = const [
     'Open until 6pm',
@@ -41,149 +50,196 @@ class EditListingController extends GetxController {
   ];
 
   // ── Rewards Tab ──
-  final selectedReward = 40.obs;
-  late final TextEditingController customRewardController;
+  int selectedReward = 40;
+  final customRewardController = TextEditingController(text: '40');
 
   final presetRewards = const [10, 15, 20, 25, 30, 40, 50, 75, 100];
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Initialize with existing data from dashboard if available
-    String initName = 'FitZone Gym';
-    String initDesc =
-        "San Francisco's premium functional fitness gym. State-of-the-art equipment, expert coaches, and a community that shows";
-    String initHours = 'Open until 10pm';
-    int initReward = 40;
+  Future<void> fetchProfile(BuildContext context) async {
+    _isLoading = true;
+    notifyListeners();
 
-    if (Get.isRegistered<BusinessDashboardController>()) {
-      final dashboard = Get.find<BusinessDashboardController>();
-      initName = dashboard.businessName.value;
-      initDesc = dashboard.listingDescription.value;
-      initHours = dashboard.listingHours.value;
-      final digits =
-          dashboard.rewardPerReferral.value.replaceAll(RegExp(r'[^0-9]'), '');
-      if (digits.isNotEmpty) {
-        initReward = int.tryParse(digits) ?? 40;
+    final response = await ApiClient.get(ApiConstants.userProfile, withAuth: true);
+
+    _isLoading = false;
+
+    if (response.success && response.data is Map<String, dynamic>) {
+      final data = response.data as Map<String, dynamic>;
+      final bName = data['businessName']?.toString() ?? data['name']?.toString();
+      if (bName != null && bName.isNotEmpty) {
+        businessNameController.text = bName;
+      }
+
+      final cat = data['category']?.toString();
+      if (cat != null && cat.isNotEmpty && categories.contains(cat)) {
+        selectedCategory = cat;
+      }
+
+      final bio = data['bio']?.toString();
+      if (bio != null && bio.isNotEmpty) {
+        descriptionController.text = bio;
+      }
+
+      final addr = data['address']?.toString();
+      if (addr != null && addr.isNotEmpty) {
+        addressController.text = addr;
+      }
+
+      final ph = data['phone']?.toString();
+      if (ph != null && ph.isNotEmpty) {
+        phoneController.text = ph;
+      }
+
+      final web = data['website']?.toString();
+      if (web != null && web.isNotEmpty) {
+        websiteController.text = web;
+      }
+
+      final hrs = data['hours']?.toString();
+      if (hrs != null && hrs.isNotEmpty && hoursOptions.contains(hrs)) {
+        selectedHours = hrs;
       }
     }
 
-    businessNameController = TextEditingController(text: initName);
-    descriptionController = TextEditingController(text: initDesc);
-    addressController = TextEditingController(text: '480 Brannan St, SF');
-    phoneController = TextEditingController(text: '+1 415 555 0202');
-    websiteController = TextEditingController(text: 'fitzonegym.com');
-    selectedHours.value = initHours;
-    selectedReward.value = initReward;
-    customRewardController = TextEditingController(text: '$initReward');
+    notifyListeners();
   }
 
   void switchTab(int index) {
-    selectedTab.value = index;
+    _selectedTab = index;
+    notifyListeners();
   }
 
   void selectCategory(String category) {
-    selectedCategory.value = category;
+    selectedCategory = category;
+    notifyListeners();
   }
 
   void selectHours(String hours) {
-    selectedHours.value = hours;
+    selectedHours = hours;
+    notifyListeners();
   }
 
   void selectPresetReward(int amount) {
-    selectedReward.value = amount;
+    selectedReward = amount;
     customRewardController.text = '$amount';
+    notifyListeners();
   }
 
   void onCustomRewardChanged(String val) {
     final parsed = int.tryParse(val.trim());
     if (parsed != null && parsed > 0) {
-      selectedReward.value = parsed;
+      selectedReward = parsed;
+      notifyListeners();
     }
   }
 
-  void uploadLogo() {
-    isLogoUploaded.value = true;
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Upload Logo',
-        'Logo updated successfully.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+  void uploadLogo(BuildContext context) {
+    isLogoUploaded = true;
+    notifyListeners();
+    _showSnackbar(context, 'Logo updated successfully.');
   }
 
-  void removeLogo() {
-    isLogoUploaded.value = false;
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Remove Logo',
-        'Photo removed.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+  void removeLogo(BuildContext context) {
+    isLogoUploaded = false;
+    notifyListeners();
+    _showSnackbar(context, 'Photo removed.');
   }
 
-  void saveListing() {
+  Future<void> saveListing(BuildContext context) async {
     final name = businessNameController.text.trim();
     if (name.isEmpty) {
-      if (Get.context != null && Get.key.currentState?.overlay != null) {
-        Get.snackbar(
-          'Validation Error',
-          'Business name cannot be empty.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      }
+      _showSnackbar(context, 'Business name cannot be empty.', isError: true);
       return;
     }
 
-    // Update BusinessDashboardController if registered
-    if (Get.isRegistered<BusinessDashboardController>()) {
-      final dashboard = Get.find<BusinessDashboardController>();
-      dashboard.businessName.value = name;
-      dashboard.updateListing(
-        name: name,
-        category: selectedCategory.value,
-        hours: selectedHours.value,
-        description: descriptionController.text.trim(),
-        rewardPerReferral: '\$${selectedReward.value}',
-      );
-    }
+    _isLoading = true;
+    notifyListeners();
 
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Saved',
-        'Listing updated successfully!',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+    final payload = {
+      'businessName': name,
+      'category': selectedCategory,
+      'bio': descriptionController.text.trim(),
+      'address': addressController.text.trim(),
+      'phone': phoneController.text.trim(),
+      'website': websiteController.text.trim(),
+      'hours': selectedHours,
+    };
 
-    if (Get.key.currentState != null) {
-      Get.back();
+    final response = await ApiClient.patch(
+      ApiConstants.userProfile,
+      body: payload,
+      withAuth: true,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+
+    if (response.success) {
+      // Sync with BusinessDashboardController
+      if (context.mounted) {
+        try {
+          final dashboard = context.read<BusinessDashboardController>();
+          dashboard.updateListing(
+            name: name,
+            category: selectedCategory,
+            hours: selectedHours,
+            description: descriptionController.text.trim(),
+            rewardPerReferral: '\$$selectedReward',
+          );
+        } catch (_) {}
+
+        _showSnackbar(context, 'Listing updated successfully!');
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          Get.back();
+        }
+      }
+    } else {
+      if (context.mounted) {
+        _showSnackbar(
+          context,
+          response.message.isNotEmpty ? response.message : 'Failed to update listing.',
+          isError: true,
+        );
+      }
     }
   }
 
   CampaignListingModel getCurrentListingModel() {
     return CampaignListingModel(
       businessName: businessNameController.text.trim(),
-      category: selectedCategory.value,
+      category: selectedCategory,
       description: descriptionController.text.trim(),
       address: addressController.text.trim(),
       phoneNumber: phoneController.text.trim(),
       website: websiteController.text.trim(),
-      openingHours: selectedHours.value,
-      rewardAmount: selectedReward.value,
+      openingHours: selectedHours,
+      rewardAmount: selectedReward,
+    );
+  }
+
+  void _showSnackbar(BuildContext context, String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: isError ? Colors.redAccent : const Color(0xFF0F9D58),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
   @override
-  void onClose() {
+  void dispose() {
     businessNameController.dispose();
     descriptionController.dispose();
     addressController.dispose();
     phoneController.dispose();
     websiteController.dispose();
     customRewardController.dispose();
-    super.onClose();
+    super.dispose();
   }
 }

@@ -1,64 +1,132 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-
 import '../../../../app/routes/routes.dart';
 import '../../../../app/theme/theme.dart';
 import '../../../../core/enums/auth_role.dart';
+import '../../../../core/services/storage_service.dart';
+import '../providers/auth_provider.dart';
 
-class SendEmailController extends GetxController {
-  late AuthRole role;
-  late String email;
+class SendEmailController extends ChangeNotifier {
+  AuthRole _role = AuthRole.promoter;
+  String _email = 'you@example.com';
+  final TextEditingController otpController = TextEditingController();
+  bool _isLoading = false;
+  bool _isResending = false;
 
-  @override
-  void onInit() {
-    super.onInit();
+  AuthRole get role => _role;
+  set role(AuthRole r) {
+    _role = r;
+    notifyListeners();
+  }
 
-    final dynamic args = Get.arguments;
-    if (args is Map) {
-      role = args['role'] is AuthRole ? args['role'] as AuthRole : AuthRole.promoter;
-      email = args['email'] is String ? args['email'] as String : 'you@example.com';
-    } else if (args is AuthRole) {
-      role = args;
-      email = 'you@example.com';
-    } else {
-      role = AuthRole.promoter;
-      email = 'you@example.com';
+  String get email => _email;
+  set email(String e) {
+    _email = e;
+    notifyListeners();
+  }
+
+  bool get isLoading => _isLoading;
+  bool get isResending => _isResending;
+  bool get isBusiness => _role == AuthRole.business;
+
+  Color get primaryColor => isBusiness ? AppColors.businessPrimary : AppColors.promoterPrimary;
+  Color get iconBackground => isBusiness ? AppColors.iconGreen : AppColors.iconBlue;
+  Color get iconColor => isBusiness ? AppColors.businessPrimary : AppColors.promoterPrimary;
+
+  void init({required AuthRole role, required String email}) {
+    _role = role;
+    _email = email;
+    notifyListeners();
+  }
+
+  Future<void> verifyCode(BuildContext context, AuthProvider authProvider) async {
+    final code = otpController.text.trim();
+    if (code.isEmpty) {
+      _showSnackbar(context, 'Please enter the 6-digit verification code', isError: true);
+      return;
     }
 
-    debugPrint('SendEmailController initialized with role: $role, email: $email');
+    _isLoading = true;
+    notifyListeners();
+
+    final response = await authProvider.verifyOtp(email: _email, otp: code);
+
+    _isLoading = false;
+    notifyListeners();
+
+    if (!context.mounted) return;
+
+    if (response.success) {
+      final roleStr = (authProvider.isBusinessOwner || isBusiness) ? 'BUSINESS_OWNER' : 'PROMOTER';
+      await StorageService.saveRole(roleStr);
+      if (!context.mounted) return;
+      _showSnackbar(context, 'Email verified successfully!', isError: false);
+      if (authProvider.isBusinessOwner || isBusiness) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.businessDashboard,
+          (route) => false,
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (route) => false,
+        );
+      }
+    } else {
+      _showSnackbar(context, response.message, isError: true);
+    }
   }
 
-  bool get isBusiness => role == AuthRole.business;
+  Future<void> resendCode(BuildContext context, AuthProvider authProvider) async {
+    _isResending = true;
+    notifyListeners();
 
-  Color get primaryColor {
-    return isBusiness
-        ? AppColors.businessPrimary
-        : AppColors.promoterPrimary;
+    final response = await authProvider.resendOtp(email: _email);
+
+    _isResending = false;
+    notifyListeners();
+
+    if (!context.mounted) return;
+
+    if (response.success) {
+      _showSnackbar(context, 'A new verification code has been sent to your email!', isError: false);
+    } else {
+      _showSnackbar(context, response.message, isError: true);
+    }
   }
 
-  Color get iconBackground {
-    return isBusiness
-        ? AppColors.iconGreen
-        : AppColors.iconBlue;
-  }
-
-  Color get iconColor {
-    return isBusiness
-        ? AppColors.businessPrimary
-        : AppColors.promoterPrimary;
-  }
-
-  void tryDifferentEmail() {
-    Get.offNamed(
+  void tryDifferentEmail(BuildContext context) {
+    Navigator.pushReplacementNamed(
+      context,
       AppRoutes.forgetPassword,
-      arguments: role,
+      arguments: _role,
     );
   }
 
-  void backToSignIn() {
-    Get.offAllNamed(
+  void backToSignIn(BuildContext context) {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
       AppRoutes.signIn,
-      arguments: role,
+      (route) => false,
+      arguments: _role,
     );
+  }
+
+  void _showSnackbar(BuildContext context, String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: isError ? Colors.red.shade900 : Colors.green.shade800,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    otpController.dispose();
+    super.dispose();
   }
 }

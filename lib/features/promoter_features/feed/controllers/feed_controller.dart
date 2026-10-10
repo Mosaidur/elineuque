@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/routes.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_constants.dart';
 import '../models/community_post_model.dart';
 
 class FeedController extends GetxController {
@@ -12,6 +14,7 @@ class FeedController extends GetxController {
   final isComposerOpen = false.obs;
   final postController = TextEditingController();
   final isPosting = false.obs;
+  final isLoading = false.obs;
 
   // ── Posts ────────────────────────────────────────────────────────
   final posts = <CommunityPostModel>[].obs;
@@ -20,6 +23,51 @@ class FeedController extends GetxController {
   void onInit() {
     super.onInit();
     _loadSamplePosts();
+    if (!Get.testMode) {
+      fetchPosts();
+    }
+  }
+
+  Future<void> fetchPosts() async {
+    isLoading.value = true;
+    try {
+      final res = await ApiClient.get(ApiConstants.posts, withAuth: true);
+      if (res.success && res.data is List) {
+        final list = res.data as List;
+        if (list.isNotEmpty) {
+          final mapped = list.map((item) {
+            final p = item as Map<String, dynamic>;
+            final id = p['_id']?.toString() ?? p['id']?.toString() ?? '';
+            final content = p['content']?.toString() ?? '';
+            final userObj = p['userId'] ?? p['author'];
+            final userName = userObj is Map ? (userObj['name'] ?? 'Promoter') : 'Promoter';
+            final userHandle = userObj is Map ? (userObj['handle'] ?? 'member') : 'member';
+            final createdAt = DateTime.tryParse(p['createdAt']?.toString() ?? '') ?? DateTime.now();
+            final likesCount = (p['likes'] as List?)?.length ?? (p['likeCount'] as num?)?.toInt() ?? 0;
+            final isLiked = p['isLiked'] == true;
+
+            return CommunityPostModel(
+              id: id,
+              userId: userObj is Map ? (userObj['_id']?.toString() ?? 'u') : 'u',
+              username: userName.toString(),
+              handle: '@$userHandle',
+              avatarEmoji: '✨',
+              content: content,
+              createdAt: createdAt,
+              likes: likesCount,
+              isLiked: isLiked,
+              comments: [],
+            );
+          }).toList();
+
+          posts.assignAll(mapped);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching community posts: $e');
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void _loadSamplePosts() {
@@ -131,22 +179,42 @@ class FeedController extends GetxController {
     if (text.isEmpty) return;
 
     isPosting.value = true;
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      final res = await ApiClient.post(
+        ApiConstants.posts,
+        body: {'content': text},
+        withAuth: true,
+      );
 
-    final newPost = CommunityPostModel(
-      id: 'p_${DateTime.now().millisecondsSinceEpoch}',
-      userId: 'me',
-      username: 'You',
-      handle: '@me',
-      avatarEmoji: '😊',
-      content: text,
-      createdAt: DateTime.now(),
-      likes: 0,
-    );
-
-    posts.insert(0, newPost);
-    isPosting.value = false;
-    closeComposer();
+      if (res.success) {
+        closeComposer();
+        await fetchPosts();
+        if (Get.context != null && Get.key.currentState?.overlay != null) {
+          Get.snackbar(
+            'Success',
+            'Your post has been published to the community!',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        }
+      } else {
+        final newPost = CommunityPostModel(
+          id: 'p_${DateTime.now().millisecondsSinceEpoch}',
+          userId: 'me',
+          username: 'You',
+          handle: '@me',
+          avatarEmoji: '😊',
+          content: text,
+          createdAt: DateTime.now(),
+          likes: 0,
+        );
+        posts.insert(0, newPost);
+        closeComposer();
+      }
+    } catch (_) {
+      closeComposer();
+    } finally {
+      isPosting.value = false;
+    }
   }
 
   // ── Like Post ────────────────────────────────────────────────────
@@ -158,6 +226,9 @@ class FeedController extends GetxController {
     post.isLiked = !post.isLiked;
     post.likes += post.isLiked ? 1 : -1;
     posts.refresh();
+
+    // Call API in background
+    ApiClient.post(ApiConstants.likePost(postId), withAuth: true);
   }
 
   // ── Comments Sheet ───────────────────────────────────────────────
@@ -206,6 +277,13 @@ class FeedController extends GetxController {
       post.comments.add(newComment);
     }
     posts.refresh();
+
+    // Call API in background
+    ApiClient.post(
+      ApiConstants.postComments(post.id),
+      body: {'content': text},
+      withAuth: true,
+    );
   }
 
   // ── Navigation ───────────────────────────────────────────────────

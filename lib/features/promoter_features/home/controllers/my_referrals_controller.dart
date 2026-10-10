@@ -2,74 +2,116 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/routes.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_constants.dart';
 import '../models/referral_activity_model.dart';
 
 class MyReferralsController extends GetxController {
   // Navigation
   final selectedNavIndex = 2.obs; // Track tab is index 2
+  final isLoading = false.obs;
 
   // Summary Metrics
-  final sharedCount = '92'.obs;
-  final pendingCount = '14'.obs;
-  final convertedCount = '78'.obs;
+  final sharedCount = '0'.obs;
+  final pendingCount = '0'.obs;
+  final convertedCount = '0'.obs;
 
-  final totalEarned = '\$1,840'.obs;
-  final thisMonthEarned = '+\$420'.obs;
+  final totalEarned = '\$0'.obs;
+  final thisMonthEarned = '+\$0'.obs;
 
-  // Recent Activity Items matching the design
-  final activities = <ReferralActivityItem>[
-    const ReferralActivityItem(
-      businessName: 'FitZone Gym',
-      friendName: 'Sarah K.',
-      timeAgo: '2h ago',
-      amount: '\$40',
-      status: ActivityStatus.paid,
-      currentStep: 4,
-      icon: Icons.fitness_center_outlined,
-      iconColor: Color(0xFF42A5F5),
-    ),
-    const ReferralActivityItem(
-      businessName: 'Kava Brew',
-      friendName: 'Marcus J.',
-      timeAgo: '5h ago',
-      amount: '\$25',
-      status: ActivityStatus.verified,
-      currentStep: 3,
-      icon: Icons.coffee_outlined,
-      iconColor: Color(0xFFFFA726),
-    ),
-    const ReferralActivityItem(
-      businessName: 'Luna Spa',
-      friendName: 'Tom W.',
-      timeAgo: '1d ago',
-      amount: '\$30',
-      status: ActivityStatus.pending,
-      currentStep: 2,
-      icon: Icons.spa_outlined,
-      iconColor: Color(0xFFAB47BC),
-    ),
-    const ReferralActivityItem(
-      businessName: 'TacoFusion',
-      friendName: 'Jen P.',
-      timeAgo: '2d ago',
-      amount: '\$20',
-      status: ActivityStatus.shared,
-      currentStep: 1,
-      canShareAgain: true,
-      icon: Icons.restaurant_outlined,
-      iconColor: Color(0xFFFF7043),
-    ),
-    const ReferralActivityItem(
-      businessName: 'CloudCuts',
-      friendName: 'Amy L.',
-      timeAgo: '3d ago',
-      amount: '\$15',
-      status: ActivityStatus.paid,
-      currentStep: 4,
-      icon: Icons.content_cut_outlined,
-      iconColor: Color(0xFF26A69A),
-    ),
-  ].obs;
+  // Activity Items
+  final activities = <ReferralActivityItem>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    if (!Get.testMode) {
+      fetchReferralActivities();
+    }
+  }
+
+  Future<void> fetchReferralActivities() async {
+    isLoading.value = true;
+    try {
+      // 1. Fetch rewards summary
+      final rewardsRes = await ApiClient.get(ApiConstants.myRewards, withAuth: true);
+      if (rewardsRes.success && rewardsRes.data is Map) {
+        final data = rewardsRes.data as Map<String, dynamic>;
+        final summary = data['summary'] as Map<String, dynamic>?;
+        if (summary != null) {
+          final total = (summary['totalEarned'] as num?)?.toDouble() ?? 0.0;
+          final released = (summary['releasedRewards'] as num?)?.toDouble() ?? 0.0;
+          totalEarned.value = '\$${total.toStringAsFixed(0)}';
+          thisMonthEarned.value = '+\$${released.toStringAsFixed(0)}';
+        }
+      }
+
+      // 2. Fetch referrals list
+      final referralsRes = await ApiClient.get(ApiConstants.myReferrals, withAuth: true);
+      if (referralsRes.success) {
+        final rawData = referralsRes.data;
+        final list = (rawData is List
+                ? rawData
+                : (rawData is Map ? (rawData['data'] as List?) : null)) ??
+            [];
+
+        sharedCount.value = '${list.length}';
+        int conv = 0;
+        int pend = 0;
+
+        final List<ReferralActivityItem> items = [];
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            final statusStr = item['status']?.toString() ?? 'PENDING';
+            final isPaid = statusStr == 'COMPLETED' || statusStr == 'RELEASED';
+            final isVerified = statusStr == 'VERIFIED';
+
+            ActivityStatus actStatus = ActivityStatus.pending;
+            int step = 2;
+            if (isPaid) {
+              actStatus = ActivityStatus.paid;
+              step = 4;
+              conv++;
+            } else if (isVerified) {
+              actStatus = ActivityStatus.verified;
+              step = 3;
+              conv++;
+            } else {
+              pend++;
+            }
+
+            final custName = item['customerIdentifier']?.toString() ?? 'Customer';
+            final businessObj = item['businessId'];
+            final businessName = businessObj is Map
+                ? (businessObj['businessName'] ?? businessObj['name'] ?? 'Store')
+                : 'Partner Store';
+            final reward = item['promoterReward'] != null
+                ? '\$${item['promoterReward']}'
+                : '\$0';
+
+            items.add(ReferralActivityItem(
+              businessName: businessName.toString(),
+              friendName: custName,
+              timeAgo: 'Recent',
+              amount: reward,
+              status: actStatus,
+              currentStep: step,
+              icon: Icons.storefront_outlined,
+              iconColor: const Color(0xFFC8FF5A),
+            ));
+          }
+        }
+
+        convertedCount.value = '$conv';
+        pendingCount.value = '$pend';
+        activities.assignAll(items);
+      }
+    } catch (e) {
+      debugPrint('Error fetching referral activities: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   void onNavTap(int index) {
     if (index == selectedNavIndex.value) return;
@@ -89,8 +131,8 @@ class MyReferralsController extends GetxController {
   void onWithdraw() {
     if (Get.context != null && Get.key.currentState?.overlay != null) {
       Get.snackbar(
-        'Withdrawal',
-        'Available balance: \$1,840.00 will be transferred to your account.',
+        'Withdrawal Request',
+        'Available balance: ${totalEarned.value} will be processed to your payout account.',
         snackPosition: SnackPosition.BOTTOM,
       );
     }

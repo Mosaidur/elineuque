@@ -1,7 +1,8 @@
 import 'package:elineuque/features/business_features/campaigns/controllers/campaigns_controller.dart';
 import 'package:elineuque/features/business_features/campaigns/models/business_campaign_item_model.dart';
+import 'package:elineuque/features/business_features/campaigns/views/widgets/campaign_card_widget.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -10,87 +11,113 @@ void main() {
     late CampaignsController controller;
 
     setUp(() {
-      Get.testMode = true;
-      Get.reset();
       controller = CampaignsController();
     });
 
     tearDown(() {
-      controller.onClose();
+      controller.dispose();
     });
 
-    test('CampaignsController initializes with default campaigns and nav index', () {
-      expect(controller.selectedNavIndex.value, 3);
-      expect(controller.campaigns.length, 2);
-
-      final first = controller.campaigns.first;
-      expect(first.title, 'Summer Membership Drive');
-      expect(first.rewardPerPurchase, 40);
-      expect(first.status, BusinessCampaignStatus.active);
+    test('CampaignsController initializes with empty campaigns and nav index 3', () {
+      expect(controller.selectedNavIndex, 3);
+      expect(controller.campaigns.length, 0);
     });
 
-    test('CampaignsController creates a new campaign successfully', () {
+    test('CampaignsController populates form for edit and clears form', () {
+      const sample = BusinessCampaignItemModel(
+        id: 'c-1',
+        title: 'Summer Drive',
+        rewardPerPurchase: 40,
+        referralLink: 'eliv.app/b/c/1',
+        sharedCount: 10,
+        purchasedCount: 4,
+        conversionRate: 40,
+        status: BusinessCampaignStatus.active,
+      );
+      controller.campaigns = [sample];
+
+      controller.populateFormForEdit(sample);
+
+      expect(controller.editingCampaignId, 'c-1');
+      expect(controller.titleController.text, 'Summer Drive');
+      expect(controller.rewardController.text, '40');
+
       controller.clearForm();
-      controller.titleController.text = 'Holiday Flash Sale';
-      controller.rewardController.text = '60';
-      controller.offerController.text = 'Get 25% off personal training';
-      controller.endDateController.text = 'Dec 31';
-
-      controller.saveCampaign();
-
-      expect(controller.campaigns.length, 3);
-      final newCamp = controller.campaigns.first;
-      expect(newCamp.title, 'Holiday Flash Sale');
-      expect(newCamp.rewardPerPurchase, 60);
-      expect(newCamp.customerOffer, 'Get 25% off personal training');
-      expect(newCamp.endDate, 'Ends Dec 31');
-      expect(newCamp.status, BusinessCampaignStatus.active);
-    });
-
-    test('CampaignsController edits an existing campaign successfully', () {
-      final target = controller.campaigns.first;
-      controller.populateFormForEdit(target);
-
-      expect(controller.editingCampaignId.value, target.id);
-      expect(controller.titleController.text, target.title);
-
-      controller.titleController.text = 'Updated Summer Drive';
-      controller.rewardController.text = '55';
-      controller.saveCampaign();
-
-      final updated = controller.campaigns.firstWhere((c) => c.id == target.id);
-      expect(updated.title, 'Updated Summer Drive');
-      expect(updated.rewardPerPurchase, 55);
+      expect(controller.titleController.text, '');
+      expect(controller.editingCampaignId, isNull);
     });
 
     test('CampaignsController toggles pause and resume status', () {
-      final target = controller.campaigns.first;
-      expect(target.status, BusinessCampaignStatus.active);
+      const sample = BusinessCampaignItemModel(
+        id: 'c-1',
+        title: 'Summer Drive',
+        rewardPerPurchase: 40,
+        referralLink: 'eliv.app/b/c/1',
+        sharedCount: 10,
+        purchasedCount: 4,
+        conversionRate: 40,
+        status: BusinessCampaignStatus.active,
+      );
+      controller.campaigns = [sample];
 
-      controller.togglePauseResume(target.id);
+      controller.togglePauseResume('c-1');
       expect(controller.campaigns.first.status, BusinessCampaignStatus.paused);
 
-      controller.togglePauseResume(target.id);
+      controller.togglePauseResume('c-1');
       expect(controller.campaigns.first.status, BusinessCampaignStatus.active);
     });
 
     test('CampaignsController deletes campaign', () {
-      final initialCount = controller.campaigns.length;
-      final targetId = controller.campaigns.first.id;
+      const sample = BusinessCampaignItemModel(
+        id: 'c-1',
+        title: 'Summer Drive',
+        rewardPerPurchase: 40,
+        referralLink: 'eliv.app/b/c/1',
+        sharedCount: 10,
+        purchasedCount: 4,
+        conversionRate: 40,
+        status: BusinessCampaignStatus.active,
+      );
+      controller.campaigns = [sample];
 
-      controller.deleteCampaign(targetId);
-      expect(controller.campaigns.length, initialCount - 1);
-      expect(controller.campaigns.any((c) => c.id == targetId), false);
+      controller.deleteCampaign('c-1');
+      expect(controller.campaigns.length, 0);
     });
 
-    test('CampaignsController copies referral link', () {
-      controller.copyReferralLink('eliv.app/b/fitzone-gym/c/21');
-      // No exception thrown
-    });
+    testWidgets('CampaignCardWidget renders compact overview with badges and triggers onTap', (tester) async {
+      bool tapped = false;
+      const sample = BusinessCampaignItemModel(
+        id: 'c-1',
+        title: 'Summer Drive',
+        rewardPerPurchase: 40,
+        customerOffer: '15% Discount',
+        minimumSpend: 50,
+        referralLink: 'eliv.app/b/c/1',
+        sharedCount: 10,
+        purchasedCount: 4,
+        conversionRate: 40,
+        status: BusinessCampaignStatus.active,
+      );
 
-    test('CampaignsController updates nav index', () {
-      controller.onNavTap(0);
-      expect(controller.selectedNavIndex.value, 0);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CampaignCardWidget(
+              campaign: sample,
+              onTap: () => tapped = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Summer Drive'), findsOneWidget);
+      expect(find.text('\$40 / referral'), findsOneWidget);
+      expect(find.text('15% Discount'), findsOneWidget);
+      expect(find.text('Min: \$50'), findsOneWidget);
+      expect(find.text('Details'), findsOneWidget);
+
+      await tester.tap(find.byType(CampaignCardWidget));
+      expect(tapped, isTrue);
     });
   });
 }

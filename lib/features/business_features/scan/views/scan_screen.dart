@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../app/theme/theme.dart';
 import '../../../business_features/dashboard/views/widgets/business_bottom_nav.dart';
@@ -9,26 +9,23 @@ import 'widgets/manual_code_input_card.dart';
 import 'widgets/scanner_step_progress.dart';
 import 'widgets/visit_verified_card.dart';
 
-class ScanScreen extends GetView<ScanController> {
+class ScanScreen extends StatelessWidget {
   const ScanScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<ScanController>();
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      bottomNavigationBar: Obx(
-        () => BusinessBottomNav(
-          selectedIndex: controller.selectedNavIndex.value,
-          onItemSelected: controller.onNavTap,
-        ),
+      bottomNavigationBar: BusinessBottomNav(
+        selectedIndex: controller.selectedNavIndex,
+        onItemSelected: (index) => controller.onNavTap(context, index),
       ),
       body: SafeArea(
-        child: Obx(() {
-          if (controller.isVerified.value) {
-            return _buildVerifiedPage();
-          }
-          return _buildScanPage();
-        }),
+        child: controller.isVerified
+            ? _buildVerifiedPage(context, controller)
+            : _buildScanPage(context, controller),
       ),
     );
   }
@@ -36,7 +33,7 @@ class ScanScreen extends GetView<ScanController> {
   // ──────────────────────────────────────────────────────────
   // PAGE 1 — Scan QR
   // ──────────────────────────────────────────────────────────
-  Widget _buildScanPage() {
+  Widget _buildScanPage(BuildContext context, ScanController controller) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
       child: Column(
@@ -69,66 +66,98 @@ class ScanScreen extends GetView<ScanController> {
           const SizedBox(height: 24),
 
           // ── Camera Viewfinder ──
-          Obx(
-            () => CameraViewfinderCard(
-              isScanning: controller.isScanning.value,
-              onTapScan: controller.startScan,
-            ),
+          CameraViewfinderCard(
+            isScanning: controller.isScanning,
+            onTapScan: () => controller.startScan(context),
           ),
 
           const SizedBox(height: 20),
 
+          // ── Spend amount row ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF092942),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF1B4968), width: 0.8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.attach_money_rounded, color: AppColors.businessPrimary, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Spend Amount: \$',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: controller.spendAmountController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: '50',
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
           // ── Manual Code Entry Card ──
           ManualCodeInputCard(
             controller: controller.manualCodeController,
-            onVerify: controller.verifyCode,
+            onVerify: () => controller.verifyCode(context),
           ),
 
           const SizedBox(height: 16),
 
           // ── Permission hint row ──
-          Obx(
-            () => AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: controller.isCameraPermissionGranted.value ? 0 : 1,
-              child: GestureDetector(
-                onTap: controller.requestCameraPermission,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A2A),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF3B2525),
-                      width: 0.8,
-                    ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: controller.isCameraPermissionGranted ? 0 : 1,
+            child: GestureDetector(
+              onTap: () => controller.requestCameraPermission(context),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A2A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF3B2525),
+                    width: 0.8,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.camera_alt_rounded,
-                        size: 18,
-                        color: Color(0xFFFF7043),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Camera permission required. Tap to grant.',
-                          style: TextStyle(
-                            color: Color(0xFFFF7043),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                          ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.camera_alt_rounded,
+                      size: 18,
+                      color: Color(0xFFFF7043),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Camera permission required. Tap to grant.',
+                        style: TextStyle(
+                          color: Color(0xFFFF7043),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 12,
-                        color: Color(0xFFFF7043),
-                      ),
-                    ],
-                  ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 12,
+                      color: Color(0xFFFF7043),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -141,20 +170,16 @@ class ScanScreen extends GetView<ScanController> {
   // ──────────────────────────────────────────────────────────
   // PAGE 2 — Visit Verified Receipt
   // ──────────────────────────────────────────────────────────
-  Widget _buildVerifiedPage() {
+  Widget _buildVerifiedPage(BuildContext context, ScanController controller) {
+    final result = controller.verificationResult;
+    if (result == null) return const SizedBox.shrink();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-      child: Obx(
-        () {
-          final result = controller.verificationResult.value;
-          if (result == null) return const SizedBox.shrink();
-
-          return VisitVerifiedCard(
-            result: result,
-            onMarkPaid: controller.markRewardAsPaid,
-            onScanAnother: controller.scanAnotherQr,
-          );
-        },
+      child: VisitVerifiedCard(
+        result: result,
+        onMarkPaid: () => controller.markRewardAsPaid(context),
+        onScanAnother: controller.scanAnotherQr,
       ),
     );
   }

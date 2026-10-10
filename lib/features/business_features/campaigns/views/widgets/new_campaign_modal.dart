@@ -6,6 +6,7 @@ class NewCampaignModal extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController rewardController;
   final TextEditingController offerController;
+  final TextEditingController minimumSpendController;
   final TextEditingController endDateController;
   final bool isEditing;
   final VoidCallback onSave;
@@ -15,6 +16,7 @@ class NewCampaignModal extends StatelessWidget {
     required this.titleController,
     required this.rewardController,
     required this.offerController,
+    required this.minimumSpendController,
     required this.endDateController,
     required this.isEditing,
     required this.onSave,
@@ -81,31 +83,59 @@ class NewCampaignModal extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // ── Field 2: Reward per Purchase ($) ──
+            // ── Field 2: Promoter Reward ($) ──
+            Row(
+              children: [
+                const Icon(Icons.payments_outlined, size: 16, color: AppColors.businessPrimary),
+                const SizedBox(width: 6),
+                const Text(
+                  'Promoter Reward (\$ per referral)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
             const Text(
-              'Reward per Purchase (\$)',
+              'Commission paid to the promoter when a referred customer purchases',
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
               ),
             ),
             const SizedBox(height: 8),
             _buildInputField(
               controller: rewardController,
-              hintText: 'e.g. 40',
+              hintText: 'e.g. 10 (or 20, 40)',
               keyboardType: TextInputType.number,
             ),
 
             const SizedBox(height: 16),
 
-            // ── Field 3: Customer Offer (optional) ──
+            // ── Field 3: Customer Offer / Discount ──
+            Row(
+              children: [
+                const Icon(Icons.card_giftcard_rounded, size: 16, color: Color(0xFF5365F5)),
+                const SizedBox(width: 6),
+                const Text(
+                  'Customer Offer / Discount',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
             const Text(
-              'Customer Offer (optional)',
+              'Incentive the referred customer receives at checkout (e.g. discount, gift)',
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
               ),
             ),
             const SizedBox(height: 8),
@@ -121,8 +151,8 @@ class NewCampaignModal extends StatelessWidget {
               ),
               child: TextField(
                 controller: offerController,
-                minLines: 3,
-                maxLines: 4,
+                minLines: 2,
+                maxLines: 3,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13.5,
@@ -131,7 +161,7 @@ class NewCampaignModal extends StatelessWidget {
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   hintText:
-                      'What do referred customers receive?\ne.g. First month 50% off',
+                      'e.g. 15% discount on total bill, or Free gift with purchase',
                   hintStyle: TextStyle(
                     color: Color(0xFF7A8699),
                     fontSize: 13,
@@ -144,7 +174,39 @@ class NewCampaignModal extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // ── Field 4: End Date (optional) ──
+            // ── Field 4: Rules & Conditions: Minimum Spend / Purchase ($) ──
+            Row(
+              children: [
+                const Icon(Icons.rule_folder_outlined, size: 16, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 6),
+                const Text(
+                  'Rule: Minimum Purchase / Spend (\$)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            const Text(
+              'Customer must spend at least this bill amount for referral to qualify (0 = no minimum)',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildInputField(
+              controller: minimumSpendController,
+              hintText: 'e.g. 50 (enter 0 for any purchase)',
+              keyboardType: TextInputType.number,
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Field 5: End Date (optional) ──
             const Text(
               'End Date (optional)',
               style: TextStyle(
@@ -154,9 +216,70 @@ class NewCampaignModal extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _buildInputField(
-              controller: endDateController,
-              hintText: 'e.g. Aug 31',
+            GestureDetector(
+              onTap: () async {
+                final now = DateTime.now();
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: now.add(const Duration(days: 30)),
+                  firstDate: now,
+                  lastDate: now.add(const Duration(days: 365)),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.dark(
+                          primary: AppColors.businessPrimary,
+                          onPrimary: Colors.black,
+                          surface: Color(0xFF1E2228),
+                          onSurface: Colors.white,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  endDateController.text =
+                      '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                }
+              },
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2B3037),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF38404A),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        endDateController.text.isEmpty
+                            ? 'Select expiry date (e.g. 30 days from now)'
+                            : endDateController.text,
+                        style: TextStyle(
+                          color: endDateController.text.isEmpty
+                              ? const Color(0xFF7A8699)
+                              : Colors.white,
+                          fontSize: 13.5,
+                          fontWeight: endDateController.text.isEmpty
+                              ? FontWeight.w400
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 18,
+                      color: AppColors.businessPrimary,
+                    ),
+                  ],
+                ),
+              ),
             ),
 
             const SizedBox(height: 24),

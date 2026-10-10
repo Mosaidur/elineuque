@@ -1,180 +1,163 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/routes.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_constants.dart';
+import '../../../../core/services/storage_service.dart';
 import '../../dashboard/controllers/business_dashboard_controller.dart';
 import '../models/business_top_promoter_model.dart';
 
-class BusinessProfileController extends GetxController {
-  final selectedNavIndex = 4.obs; // Profile tab is index 4
+class BusinessProfileController extends ChangeNotifier {
+  int _selectedNavIndex = 4; // Profile tab is index 4
+  bool _isLoading = false;
 
-  // Business Details (Reactive, can sync with Dashboard)
-  final businessName = 'FitZone Gym'.obs;
-  final category = 'Fitness'.obs;
-  final location = 'SF'.obs;
-  final rewardPerReferral = '\$40'.obs;
-  final activePromotersCount = 128.obs;
-  final listingHours = 'Open until 10pm'.obs;
+  int get selectedNavIndex => _selectedNavIndex;
+  bool get isLoading => _isLoading;
+
+  // Business Details
+  String businessName = '';
+  String category = 'Business';
+  String location = '';
+  String rewardPerReferral = '\$0';
+  int activePromotersCount = 0;
+  String listingHours = 'Open until 10pm';
 
   // KPI Metrics
-  final totalReferrals = 128.obs;
-  final totalConverted = 94.obs;
-  final totalRevenue = '\$12.4K'.obs;
+  int totalReferrals = 0;
+  int totalConverted = 0;
+  String totalRevenue = '\$0.0K';
 
   // Campaign QR details
-  final qrReferralLink = 'eliv.app/b/fitzone-gym';
+  String qrReferralLink = 'eliv.app/b';
 
   // Active Promoters List
-  final activePromoters = <BusinessTopPromoterModel>[
-    const BusinessTopPromoterModel(
-      rank: 1,
-      name: 'Devon Rivera',
-      handle: '@devon_sfams',
-      referralsCount: 34,
-      totalEarnings: 700,
-      conversionsCount: 28,
-      initials: 'DR',
-      avatarEmoji: '👨',
-    ),
-    const BusinessTopPromoterModel(
-      rank: 2,
-      name: 'Mia Torres',
-      handle: '@mia_promo',
-      referralsCount: 22,
-      totalEarnings: 475,
-      conversionsCount: 19,
-      initials: 'MT',
-      avatarEmoji: '👩',
-    ),
-    const BusinessTopPromoterModel(
-      rank: 3,
-      name: 'Kwame Asante',
-      handle: '@kwame_ref',
-      referralsCount: 18,
-      totalEarnings: 350,
-      conversionsCount: 14,
-      initials: 'KA',
-      avatarEmoji: '🧔',
-    ),
-    const BusinessTopPromoterModel(
-      rank: 4,
-      name: 'Sakura Ito',
-      handle: '@sakura_links',
-      referralsCount: 12,
-      totalEarnings: 200,
-      conversionsCount: 8,
-      initials: 'SI',
-      avatarEmoji: '👩‍🦰',
-    ),
-  ].obs;
+  List<BusinessTopPromoterModel> activePromoters = const [];
+
+  bool _isDisposed = false;
 
   @override
-  void onInit() {
-    super.onInit();
-    // Sync with BusinessDashboardController if available
-    if (Get.isRegistered<BusinessDashboardController>()) {
-      final dashboard = Get.find<BusinessDashboardController>();
-      businessName.value = dashboard.businessName.value;
-      category.value = dashboard.listingCategory.value;
-      listingHours.value = dashboard.listingHours.value;
-      rewardPerReferral.value = dashboard.rewardPerReferral.value;
-      activePromotersCount.value = dashboard.activePromotersCount.value;
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  Future<void> fetchProfile(BusinessDashboardController? dashboard) async {
+    // If dashboard data is available, populate immediately
+    if (dashboard != null) {
+      businessName = dashboard.businessName;
+      category = dashboard.listingCategory;
+      listingHours = dashboard.listingHours;
+      rewardPerReferral = dashboard.rewardPerReferral;
+      activePromotersCount = dashboard.activePromotersCount;
+      totalReferrals = dashboard.totalReferrals;
+      totalConverted = dashboard.conversionsCount;
+      totalRevenue = dashboard.revenueDriven;
+      qrReferralLink = 'eliv.app/b/${businessName.toLowerCase().replaceAll(' ', '-')}';
+      if (!_isDisposed) notifyListeners();
     }
+
+    _isLoading = true;
+    if (!_isDisposed) notifyListeners();
+
+    final response = await ApiClient.get(ApiConstants.userProfile, withAuth: true);
+
+    if (_isDisposed) return;
+    _isLoading = false;
+
+    if (response.success && response.data is Map<String, dynamic>) {
+      final data = response.data as Map<String, dynamic>;
+      final bName = data['businessName']?.toString() ?? data['name']?.toString();
+      if (bName != null && bName.isNotEmpty) {
+        businessName = bName;
+        qrReferralLink = 'eliv.app/b/${bName.toLowerCase().replaceAll(' ', '-')}';
+      }
+
+      final cat = data['category']?.toString();
+      if (cat != null && cat.isNotEmpty) {
+        category = cat;
+      }
+
+      final addr = data['address']?.toString();
+      if (addr != null && addr.isNotEmpty) {
+        location = addr;
+      }
+
+      final hrs = data['hours']?.toString();
+      if (hrs != null && hrs.isNotEmpty) {
+        listingHours = hrs;
+      }
+    }
+
+    if (!_isDisposed) notifyListeners();
   }
 
   void onEditListing() {
-    if (Get.key.currentState != null) {
-      Get.toNamed(AppRoutes.editListing);
-    }
+    Get.toNamed(AppRoutes.editListing);
   }
 
-  void copyQrLink() {
+  void copyQrLink(BuildContext context) {
     Clipboard.setData(ClipboardData(text: 'https://$qrReferralLink'));
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Link Copied',
-        '$qrReferralLink copied to clipboard.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+    _showSnackbar(context, '$qrReferralLink copied to clipboard.');
   }
 
-  void downloadQr() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Download QR',
-        'Campaign QR code saved to gallery.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+  void downloadQr(BuildContext context) {
+    _showSnackbar(context, 'Campaign QR code saved to gallery.');
   }
 
-  void onNotificationPreferences() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Notification Preferences',
-        'Email and push alerts are currently enabled.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+  void onNotificationPreferences(BuildContext context) {
+    _showSnackbar(context, 'Email and push alerts are currently enabled.');
   }
 
-  void onPaymentAndPayouts() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Payment & Payouts',
-        'Connected Stripe Account: **** 4821 (Active)',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+  void onPaymentAndPayouts(BuildContext context) {
+    _showSnackbar(context, 'Connected Payment Account: Active');
   }
 
-  void onHelpAndSupport() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Help & Support',
-        'Support team is available 24/7 at support@elivapp.com',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
+  void onHelpAndSupport(BuildContext context) {
+    _showSnackbar(context, 'Support team is available 24/7 at support@elivapp.com');
   }
 
-  void signOut() {
-    if (Get.key.currentState != null) {
-      Get.offAllNamed(AppRoutes.roleSelection);
-    }
+  Future<void> signOut() async {
+    await StorageService.clear();
+    Get.offAllNamed(AppRoutes.roleSelection);
   }
 
-  void onNavTap(int index) {
-    if (index == selectedNavIndex.value) return;
-    selectedNavIndex.value = index;
+  void onNavTap(BuildContext context, int index) {
+    if (index == _selectedNavIndex) return;
+    _selectedNavIndex = index;
+    notifyListeners();
 
     switch (index) {
       case 0:
-        if (Get.key.currentState != null) {
-          Get.offNamed(AppRoutes.businessDashboard);
-        }
+        Get.offNamed(AppRoutes.businessDashboard);
         break;
       case 1:
-        if (Get.key.currentState != null) {
-          Get.toNamed(AppRoutes.businessReferrals);
-        }
+        Get.toNamed(AppRoutes.businessReferrals);
         break;
       case 2:
-        if (Get.key.currentState != null) {
-          Get.toNamed(AppRoutes.businessScan);
-        }
+        Get.toNamed(AppRoutes.businessScan);
         break;
       case 3:
-        if (Get.key.currentState != null) {
-          Get.toNamed(AppRoutes.businessCampaigns);
-        }
+        Get.toNamed(AppRoutes.businessCampaigns);
         break;
       case 4:
-        // Already on Profile
         break;
       default:
         break;
     }
+  }
+
+  void _showSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: const Color(0xFF0F9D58),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 }
