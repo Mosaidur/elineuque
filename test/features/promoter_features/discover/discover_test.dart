@@ -7,8 +7,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    Get.testMode = true;
     Get.reset();
+    Get.testMode = true;
   });
 
   tearDown(() {

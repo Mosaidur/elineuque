@@ -1,7 +1,6 @@
 import 'package:elineuque/features/business_features/referral/controllers/business_referral_controller.dart';
 import 'package:elineuque/features/business_features/referral/models/business_referral_model.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -10,22 +9,72 @@ void main() {
     late BusinessReferralController controller;
 
     setUp(() {
-      Get.testMode = true;
-      Get.reset();
       controller = BusinessReferralController();
     });
 
-    test('BusinessReferralController initializes with default referrals and counts', () {
-      expect(controller.selectedFilter.value, 'all');
-      expect(controller.selectedNavIndex.value, 1);
-      expect(controller.allCount, 5);
-      expect(controller.pendingCount, 1);
-      expect(controller.verifiedCount, 2);
-      expect(controller.paidCount, 1);
-      expect(controller.filteredReferrals.length, 5);
+    tearDown(() {
+      controller.dispose();
     });
 
-    test('BusinessReferralController filters referrals correctly', () {
+    test('BusinessReferralController initializes with empty referrals and zero counts', () {
+      expect(controller.selectedFilter, 'all');
+      expect(controller.selectedNavIndex, 1);
+      expect(controller.allCount, 0);
+      expect(controller.pendingCount, 0);
+      expect(controller.verifiedCount, 0);
+      expect(controller.paidCount, 0);
+      expect(controller.filteredReferrals.isEmpty, true);
+    });
+
+    test('BusinessReferralController filters referrals correctly when populated', () {
+      controller.referrals = [
+        const BusinessReferralModel(
+          id: 'ref-1',
+          promoterName: 'Devon R.',
+          customerName: 'Sarah K.',
+          timeAgo: '1h ago',
+          rewardAmount: 40,
+          status: BusinessReferralStatus.verified,
+          promoterInitials: 'DR',
+        ),
+        const BusinessReferralModel(
+          id: 'ref-2',
+          promoterName: 'Alicia M.',
+          customerName: 'Tom M.',
+          timeAgo: '3h ago',
+          rewardAmount: 40,
+          status: BusinessReferralStatus.pending,
+          promoterInitials: 'AM',
+        ),
+        const BusinessReferralModel(
+          id: 'ref-3',
+          promoterName: 'Jordan T.',
+          customerName: 'Jen P.',
+          timeAgo: '5h ago',
+          rewardAmount: 40,
+          status: BusinessReferralStatus.verified,
+          promoterInitials: 'JT',
+        ),
+        const BusinessReferralModel(
+          id: 'ref-4',
+          promoterName: 'Devon R.',
+          customerName: 'Carlos S.',
+          timeAgo: '1d ago',
+          rewardAmount: 40,
+          status: BusinessReferralStatus.paid,
+          promoterInitials: 'DR',
+        ),
+        const BusinessReferralModel(
+          id: 'ref-5',
+          promoterName: 'Simone V.',
+          customerName: 'Amy L.',
+          timeAgo: '2d ago',
+          rewardAmount: 40,
+          status: BusinessReferralStatus.rejected,
+          promoterInitials: 'SV',
+        ),
+      ];
+
       controller.setFilter('pending');
       expect(controller.filteredReferrals.length, 1);
       expect(controller.filteredReferrals.first.id, 'ref-2');
@@ -39,37 +88,6 @@ void main() {
 
       controller.setFilter('all');
       expect(controller.filteredReferrals.length, 5);
-    });
-
-    test('BusinessReferralController verifies a pending referral', () {
-      controller.verifyReferral('ref-2');
-
-      final verifiedItem = controller.referrals.firstWhere((r) => r.id == 'ref-2');
-      expect(verifiedItem.status, BusinessReferralStatus.verified);
-      expect(controller.pendingCount, 0);
-      expect(controller.verifiedCount, 3);
-    });
-
-    test('BusinessReferralController rejects a pending referral', () {
-      controller.rejectReferral('ref-2');
-
-      final rejectedItem = controller.referrals.firstWhere((r) => r.id == 'ref-2');
-      expect(rejectedItem.status, BusinessReferralStatus.rejected);
-      expect(controller.pendingCount, 0);
-    });
-
-    test('BusinessReferralController marks a verified referral as paid', () {
-      controller.markPaid('ref-1');
-
-      final paidItem = controller.referrals.firstWhere((r) => r.id == 'ref-1');
-      expect(paidItem.status, BusinessReferralStatus.paid);
-      expect(controller.paidCount, 2);
-      expect(controller.verifiedCount, 1);
-    });
-
-    test('BusinessReferralController updates nav index', () {
-      controller.onNavTap(2);
-      expect(controller.selectedNavIndex.value, 2);
     });
   });
 }

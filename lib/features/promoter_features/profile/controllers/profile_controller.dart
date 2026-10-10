@@ -2,29 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/routes.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_constants.dart';
+import '../../../../core/services/storage_service.dart';
 import '../models/leaderboard_user_model.dart';
 import '../models/profile_badge_model.dart';
 
 class ProfileController extends GetxController {
   final selectedNavIndex = 4.obs; // Profile tab is index 4
+  final isLoading = false.obs;
 
   // Edit Mode toggle
   final isEditing = false.obs;
 
   // Profile Data
-  final fullName = 'rifat15-4798'.obs;
-  final handle = '@rifat15_4798'.obs;
-  final rankText = 'Rank #4'.obs;
-  final email = 'rifat15-4798@diu.edu.bd'.obs;
+  final fullName = 'Promoter'.obs;
+  final handle = '@promoter'.obs;
+  final rankText = 'Rank #1'.obs;
+  final email = ''.obs;
   final phone = ''.obs;
   final bio = ''.obs;
 
   // Stats
-  final earnedAmount = '\$1,840'.obs;
-  final totalReferrals = 92.obs;
-  final convertedCount = 78.obs;
-  final availableWallet = '\$620.00'.obs;
-  final badgesEarnedText = '4 / 6 earned'.obs;
+  final earnedAmount = '\$0'.obs;
+  final totalReferrals = 0.obs;
+  final convertedCount = 0.obs;
+  final availableWallet = '\$0.00'.obs;
+  final badgesEarnedText = '1 / 6 earned'.obs;
 
   // Text Controllers for Edit Mode
   late final TextEditingController fullNameCtrl;
@@ -51,21 +55,21 @@ class ProfileController extends GetxController {
       title: 'Top 10%',
       icon: Icons.emoji_events_rounded,
       iconColor: Color(0xFFFFB74D),
-      isEarned: true,
+      isEarned: false,
     ),
     const ProfileBadgeModel(
       id: 'b3',
       title: '10 Conversions',
       icon: Icons.gps_fixed_rounded,
       iconColor: Color(0xFFFF5252),
-      isEarned: true,
+      isEarned: false,
     ),
     const ProfileBadgeModel(
       id: 'b4',
       title: 'Community Star',
       icon: Icons.star_rounded,
       iconColor: Color(0xFFFFD54F),
-      isEarned: true,
+      isEarned: false,
     ),
     const ProfileBadgeModel(
       id: 'b5',
@@ -84,49 +88,7 @@ class ProfileController extends GetxController {
   ].obs;
 
   // Leaderboard list
-  final leaderboard = <LeaderboardUserModel>[
-    const LeaderboardUserModel(
-      rank: 1,
-      name: 'Alicia M.',
-      initials: 'AM',
-      avatarColor: Color(0xFF5365F5),
-      referralsCount: 162,
-      earnings: '\$3,240',
-    ),
-    const LeaderboardUserModel(
-      rank: 2,
-      name: 'Jordan T.',
-      initials: 'JT',
-      avatarColor: Color(0xFFAB47BC),
-      referralsCount: 144,
-      earnings: '\$2,890',
-    ),
-    const LeaderboardUserModel(
-      rank: 3,
-      name: 'Marcus B.',
-      initials: 'MB',
-      avatarColor: Color(0xFF26A69A),
-      referralsCount: 122,
-      earnings: '\$2,450',
-    ),
-    const LeaderboardUserModel(
-      rank: 4,
-      name: 'You',
-      initials: 'YO',
-      avatarColor: Color(0xFF5365F5),
-      referralsCount: 92,
-      earnings: '\$1,840',
-      isCurrentUser: true,
-    ),
-    const LeaderboardUserModel(
-      rank: 5,
-      name: 'Priya K.',
-      initials: 'PK',
-      avatarColor: Color(0xFFFFA726),
-      referralsCount: 81,
-      earnings: '\$1,620',
-    ),
-  ].obs;
+  final leaderboard = <LeaderboardUserModel>[].obs;
 
   @override
   void onInit() {
@@ -136,6 +98,103 @@ class ProfileController extends GetxController {
     emailCtrl = TextEditingController(text: email.value);
     phoneCtrl = TextEditingController(text: phone.value);
     bioCtrl = TextEditingController(text: bio.value);
+
+    if (!Get.testMode) {
+      fetchProfileData();
+    }
+  }
+
+  Future<void> fetchProfileData() async {
+    isLoading.value = true;
+    try {
+      // 1. Fetch User Profile
+      final profileRes = await ApiClient.get(ApiConstants.userProfile, withAuth: true);
+      if (profileRes.success && profileRes.data is Map) {
+        final d = profileRes.data as Map<String, dynamic>;
+        fullName.value = d['name']?.toString() ?? 'Promoter';
+        email.value = d['email']?.toString() ?? '';
+        phone.value = d['phone']?.toString() ?? '';
+        bio.value = d['bio']?.toString() ?? '';
+        final h = d['handle']?.toString();
+        handle.value = (h != null && h.isNotEmpty)
+            ? (h.startsWith('@') ? h : '@$h')
+            : '@${fullName.value.toLowerCase().replaceAll(' ', '_')}';
+
+        fullNameCtrl.text = fullName.value;
+        emailCtrl.text = email.value;
+        phoneCtrl.text = phone.value;
+        bioCtrl.text = bio.value;
+        handleCtrl.text = handle.value;
+      }
+
+      // 2. Fetch Rewards Summary
+      final rewardsRes = await ApiClient.get(ApiConstants.myRewards, withAuth: true);
+      if (rewardsRes.success && rewardsRes.data is Map) {
+        final d = rewardsRes.data as Map<String, dynamic>;
+        final summary = d['summary'] as Map<String, dynamic>?;
+        if (summary != null) {
+          final total = (summary['totalEarned'] as num?)?.toDouble() ?? 0.0;
+          final released = (summary['releasedRewards'] as num?)?.toDouble() ?? 0.0;
+          earnedAmount.value = '\$${total.toStringAsFixed(0)}';
+          availableWallet.value = '\$${released.toStringAsFixed(2)}';
+        }
+      }
+
+      // 3. Fetch Referrals Count
+      final referralsRes = await ApiClient.get(ApiConstants.myReferrals, withAuth: true);
+      if (referralsRes.success) {
+        final rawData = referralsRes.data;
+        final list = (rawData is List
+                ? rawData
+                : (rawData is Map ? (rawData['data'] as List?) : null)) ??
+            [];
+        totalReferrals.value = list.length;
+        int converted = 0;
+        for (final item in list) {
+          if (item is Map) {
+            final st = item['status']?.toString();
+            if (st == 'COMPLETED' || st == 'RELEASED' || st == 'VERIFIED') converted++;
+          }
+        }
+        convertedCount.value = converted;
+      }
+
+      // 4. Fetch Leaderboard
+      final leaderRes = await ApiClient.get(ApiConstants.leaderboard, withAuth: true);
+      if (leaderRes.success && leaderRes.data is Map) {
+        final d = leaderRes.data as Map<String, dynamic>;
+        final cur = d['currentUser'] as Map<String, dynamic>?;
+        if (cur != null && cur['rank'] != null) {
+          rankText.value = cur['rank'].toString();
+        }
+
+        final list = d['leaderboard'] as List?;
+        if (list != null && list.isNotEmpty) {
+          final mapped = list.asMap().entries.map((entry) {
+            final u = entry.value as Map<String, dynamic>;
+            final rank = (u['rank'] as num?)?.toInt() ?? (entry.key + 1);
+            final name = u['name']?.toString() ?? 'Promoter';
+            final initials = name.isNotEmpty ? name[0].toUpperCase() : 'P';
+            final earnings = u['earnings'] != null ? '\$${u['earnings']}' : '\$0';
+            final count = (u['referralsCount'] as num?)?.toInt() ?? 0;
+
+            return LeaderboardUserModel(
+              rank: rank,
+              name: name,
+              initials: initials,
+              avatarColor: const Color(0xFF5365F5),
+              referralsCount: count,
+              earnings: earnings,
+            );
+          }).toList();
+          leaderboard.assignAll(mapped);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching promoter profile: $e');
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void openEdit() {
@@ -151,27 +210,36 @@ class ProfileController extends GetxController {
     isEditing.value = false;
   }
 
-  void saveProfile() {
-    if (fullNameCtrl.text.trim().isNotEmpty) {
-      fullName.value = fullNameCtrl.text.trim();
-    }
-    if (handleCtrl.text.trim().isNotEmpty) {
-      handle.value = handleCtrl.text.trim().startsWith('@')
-          ? handleCtrl.text.trim()
-          : '@${handleCtrl.text.trim()}';
-    }
-    if (emailCtrl.text.trim().isNotEmpty) {
-      email.value = emailCtrl.text.trim();
-    }
-    phone.value = phoneCtrl.text.trim();
-    bio.value = bioCtrl.text.trim();
+  Future<void> saveProfile() async {
+    final newName = fullNameCtrl.text.trim();
+    final newPhone = phoneCtrl.text.trim();
+    final newBio = bioCtrl.text.trim();
+    final newHandle = handleCtrl.text.trim().replaceAll('@', '');
+
+    final res = await ApiClient.patch(
+      ApiConstants.userProfile,
+      body: {
+        if (newName.isNotEmpty) 'name': newName,
+        if (newPhone.isNotEmpty) 'phone': newPhone,
+        if (newBio.isNotEmpty) 'bio': newBio,
+        if (newHandle.isNotEmpty) 'handle': newHandle,
+      },
+      withAuth: true,
+    );
+
+    if (newName.isNotEmpty) fullName.value = newName;
+    if (newPhone.isNotEmpty) phone.value = newPhone;
+    bio.value = newBio;
+    if (newHandle.isNotEmpty) handle.value = '@$newHandle';
 
     isEditing.value = false;
 
     if (Get.context != null && Get.key.currentState?.overlay != null) {
       Get.snackbar(
-        'Profile Updated',
-        'Your profile details have been successfully saved.',
+        res.success ? 'Profile Updated' : 'Notice',
+        res.success
+            ? 'Your profile details have been saved to the server.'
+            : res.message,
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -181,7 +249,7 @@ class ProfileController extends GetxController {
     if (Get.context != null && Get.key.currentState?.overlay != null) {
       Get.snackbar(
         'Change Photo',
-        'Select a new avatar photo from gallery or camera.',
+        'Profile avatar update will be available in future release.',
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -191,7 +259,7 @@ class ProfileController extends GetxController {
     if (Get.context != null && Get.key.currentState?.overlay != null) {
       Get.snackbar(
         'Withdraw Balance',
-        '${availableWallet.value} is being processed to your bank account.',
+        '${availableWallet.value} is being processed to your payout account.',
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -201,7 +269,8 @@ class ProfileController extends GetxController {
     selectedPeriod.value = period;
   }
 
-  void onSignOut() {
+  Future<void> onSignOut() async {
+    await StorageService.clearAuth();
     if (Get.key.currentState != null) {
       Get.offAllNamed(AppRoutes.roleSelection);
     }

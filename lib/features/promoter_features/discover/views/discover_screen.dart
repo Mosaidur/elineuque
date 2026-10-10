@@ -23,9 +23,12 @@ class DiscoverScreen extends GetView<DiscoverController> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: controller.fetchDiscoverBusinesses,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─────────────────────────────
@@ -152,6 +155,7 @@ class DiscoverScreen extends GetView<DiscoverController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/routes.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_constants.dart';
 import '../models/business_discover_model.dart';
 import '../models/campaign_model.dart';
 
@@ -11,6 +13,70 @@ class DiscoverController extends GetxController {
   final searchController = TextEditingController();
   final searchQuery = ''.obs;
   final selectedCategory = 'All'.obs;
+  final isLoading = false.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    if (!Get.testMode) {
+      fetchDiscoverBusinesses();
+    }
+  }
+
+  Future<void> fetchDiscoverBusinesses() async {
+    isLoading.value = true;
+    try {
+      final res = await ApiClient.get(ApiConstants.campaigns, withAuth: true);
+      if (res.success && res.data is List) {
+        final list = res.data as List;
+        final mapped = list.map((c) {
+          final id = c['_id']?.toString() ?? c['id']?.toString() ?? '';
+          final title = c['title']?.toString() ?? 'Partner Campaign';
+          final reward = c['reward']?.toString() ?? '\$20';
+          final offer = c['offer']?.toString() ?? 'Exclusive Offer';
+          final minSpend = (c['minimumSpend'] as num?)?.toInt() ?? 0;
+          final sharedCount = (c['sharedCount'] as num?)?.toInt() ?? 0;
+
+          return BusinessDiscoverModel(
+            id: id,
+            name: title,
+            category: 'All',
+            distanceMi: 0.5,
+            rating: 4.9,
+            rewardPerReferral: reward,
+            activePromoters: sharedCount > 0 ? sharedCount : 1,
+            isVerified: true,
+            icon: Icons.storefront_rounded,
+            iconColor: const Color(0xFFC8FF5A),
+            location: 'Verified Partner Store',
+            hours: 'Active Campaign',
+            website: 'eliv.app',
+            referralSlug: id,
+            campaigns: [
+              CampaignModel(
+                id: id,
+                title: title,
+                rewardAmount: reward,
+                rewardSuffix: 'per conversion',
+                description: '$offer. Minimum spend: \$$minSpend',
+                endsDate: c['endDate'] != null ? 'Ends ${c['endDate'].toString().substring(0, 10)}' : 'Ongoing',
+                promotersCount: '$sharedCount promoters',
+                isActive: true,
+              ),
+            ],
+          );
+        }).toList();
+
+        if (mapped.isNotEmpty) {
+          businesses.assignAll(mapped);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching discover businesses: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   final categories = <String>[
     'All',

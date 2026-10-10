@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-
+import 'package:provider/provider.dart';
 
 import '../../../../app/theme/theme.dart';
-import '../controllers/splash_screen_controller.dart';
+import '../providers/splash_provider.dart';
 
-
-class SplashScreen extends GetView<SplashController> {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SplashProvider>().startSplashTimer(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +44,6 @@ class SplashScreen extends GetView<SplashController> {
               ),
             ),
           ),
-
           SafeArea(
             child: Center(
               child: Column(
@@ -47,8 +57,6 @@ class SplashScreen extends GetView<SplashController> {
                       fit: BoxFit.contain,
                     ),
                   ),
-                  // const SizedBox(height: 10),
-
                 ],
               ),
             ),
@@ -58,4 +66,3 @@ class SplashScreen extends GetView<SplashController> {
     );
   }
 }
-

@@ -23,9 +23,12 @@ class MyReferralsScreen extends GetView<MyReferralsController> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: controller.fetchReferralActivities,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─────────────────────────────
@@ -102,16 +105,34 @@ class MyReferralsScreen extends GetView<MyReferralsController> {
               // ─────────────────────────────
               // 6. ACTIVITY TIMELINE CARDS
               // ─────────────────────────────
-              Obx(
-                () => Column(
+              Obx(() {
+                if (controller.activities.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 28),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 0.8),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'No tracked referrals yet. Share campaigns to see progress!',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                  );
+                }
+                return Column(
                   children: controller.activities.map((item) {
                     return ActivityTimelineCard(
                       item: item,
                       onShareAgain: () => controller.onShareLinkAgain(item),
                     );
                   }).toList(),
-                ),
-              ),
+                );
+              }),
 
               const SizedBox(height: 10),
 
@@ -150,6 +171,7 @@ class MyReferralsScreen extends GetView<MyReferralsController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

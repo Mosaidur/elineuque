@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:elineuque/features/promoter_features/home/controllers/my_referrals_controller.dart';
@@ -7,8 +8,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    Get.testMode = true;
     Get.reset();
+    Get.testMode = true;
   });
 
   tearDown(() {
@@ -16,38 +17,43 @@ void main() {
   });
 
   group('MyReferralsController Tests', () {
-    test('MyReferralsController initializes stats and activity items', () {
+    test('MyReferralsController initializes dynamic stats and activities', () {
       final controller = MyReferralsController();
       Get.put(controller);
 
-      expect(controller.sharedCount.value, '92');
-      expect(controller.pendingCount.value, '14');
-      expect(controller.convertedCount.value, '78');
-      expect(controller.totalEarned.value, '\$1,840');
-      expect(controller.thisMonthEarned.value, '+\$420');
-
+      expect(controller.sharedCount.value, '0');
+      expect(controller.pendingCount.value, '0');
+      expect(controller.convertedCount.value, '0');
+      expect(controller.totalEarned.value, '\$0');
+      expect(controller.thisMonthEarned.value, '+\$0');
       expect(controller.selectedNavIndex.value, 2); // Track tab is index 2
-      expect(controller.activities.length, 5);
-
-      final fitZone = controller.activities.firstWhere((a) => a.businessName == 'FitZone Gym');
-      expect(fitZone.status, ActivityStatus.paid);
-      expect(fitZone.currentStep, 4);
-
-      final tacoFusion = controller.activities.firstWhere((a) => a.businessName == 'TacoFusion');
-      expect(tacoFusion.status, ActivityStatus.shared);
-      expect(tacoFusion.currentStep, 1);
-      expect(tacoFusion.canShareAgain, true);
+      expect(controller.activities.isEmpty, true);
     });
 
     test('MyReferralsController activity items have correct status labels', () {
-      final controller = MyReferralsController();
-      Get.put(controller);
+      const itemVerified = ReferralActivityItem(
+        businessName: 'Kava Brew',
+        friendName: 'Alex M.',
+        timeAgo: '2h ago',
+        amount: '\$25',
+        status: ActivityStatus.verified,
+        currentStep: 3,
+        icon: Icons.coffee,
+        iconColor: Colors.amber,
+      );
+      expect(itemVerified.statusLabel, 'verified');
 
-      final kavaBrew = controller.activities.firstWhere((a) => a.businessName == 'Kava Brew');
-      expect(kavaBrew.statusLabel, 'verified');
-
-      final lunaSpa = controller.activities.firstWhere((a) => a.businessName == 'Luna Spa');
-      expect(lunaSpa.statusLabel, 'pending');
+      const itemPending = ReferralActivityItem(
+        businessName: 'Luna Spa',
+        friendName: 'Sarah K.',
+        timeAgo: '1d ago',
+        amount: '\$15',
+        status: ActivityStatus.pending,
+        currentStep: 2,
+        icon: Icons.spa,
+        iconColor: Colors.purple,
+      );
+      expect(itemPending.statusLabel, 'pending');
     });
   });
 }

@@ -1,15 +1,17 @@
 import 'package:elineuque/features/promoter_features/auth/views/widgets/role_selecting_card.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../app/theme/theme.dart';
-import '../controllers/role_select_controller.dart';
+import '../providers/role_selection_provider.dart';
 
-class RoleSelectionScreen extends GetView<RoleSelectionController> {
+class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final roleProvider = context.watch<RoleSelectionProvider>();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -61,15 +63,15 @@ class RoleSelectionScreen extends GetView<RoleSelectionController> {
 
                     const SizedBox(height: 30),
 
-                    ...controller.roles.map(
-                          (role) => Padding(
+                    ...roleProvider.roles.map(
+                      (role) => Padding(
                         padding: const EdgeInsets.only(
                           bottom: 16,
                         ),
                         child: RoleCard(
                           role: role,
                           onTap: () {
-                            controller.selectRole(role);
+                            roleProvider.selectRole(context, role);
                           },
                         ),
                       ),

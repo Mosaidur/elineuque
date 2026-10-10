@@ -1,11 +1,10 @@
-import 'package:get/get.dart';
-
+import 'package:flutter/material.dart';
 import '../../../../app/routes/routes.dart';
 import '../../../../core/enums/auth_role.dart';
 import '../models/roles_model.dart';
 
-class RoleSelectionController extends GetxController {
-  final roles = const [
+class RoleSelectionController extends ChangeNotifier {
+  final List<RoleOption> roles = const [
     RoleOption(
       title: 'Promoter / Referrer',
       description:
@@ -32,10 +31,13 @@ class RoleSelectionController extends GetxController {
     ),
   ];
 
-  void selectRole(RoleOption role) {
-    Get.toNamed(
+  void selectRole(BuildContext context, RoleOption role) {
+    Navigator.pushNamed(
+      context,
       AppRoutes.signIn,
       arguments: role.role,
     );
   }
 }
+
+typedef RoleSelectController = RoleSelectionController;

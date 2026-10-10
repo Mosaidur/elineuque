@@ -1,126 +1,168 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import '../../../../app/routes/routes.dart';
 import '../../../../app/theme/theme.dart';
 import '../../../../core/enums/auth_role.dart';
+import '../../../../core/services/storage_service.dart';
+import '../providers/auth_provider.dart';
 
-class SignInController extends GetxController {
-  late AuthRole role;
+class SignInController extends ChangeNotifier {
+  AuthRole _role = AuthRole.promoter;
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
+  bool _isSignUp = false;
 
-  final isPasswordVisible = false.obs;
-  final isSignUp = false.obs;
-  final isLoading = false.obs;
+  AuthRole get role => _role;
+  set role(AuthRole r) => initRole(r);
+  bool get isPasswordVisible => _isPasswordVisible;
+  bool get isLoading => _isLoading;
+  bool get isBusiness => _role == AuthRole.business;
+  bool get isSignUp => _isSignUp;
 
-  @override
-  void onInit() {
-    super.onInit();
+  String get accountTitle => isBusiness ? 'Business Account' : 'Promoter Account';
+  Color get primaryColor => isBusiness ? AppColors.businessPrimary : AppColors.promoterPrimary;
 
-    final dynamic args = Get.arguments;
-    if (args is AuthRole) {
-      role = args;
-    } else {
-      role = AuthRole.promoter;
-    }
-
-    debugPrint('Authentication role initialized: $role');
-  }
-
-  bool get isBusiness => role == AuthRole.business;
-
-  String get accountTitle {
-    return isBusiness ? 'Business Account' : 'Promoter Account';
-  }
-
-  Color get primaryColor {
-    return isBusiness
-        ? AppColors.businessPrimary
-        : AppColors.promoterPrimary;
-  }
-
-  void togglePasswordVisibility() {
-    isPasswordVisible.toggle();
+  void initRole(AuthRole role) {
+    if (_role == role) return;
+    _role = role;
+    notifyListeners();
   }
 
   void selectSignIn() {
-    isSignUp.value = false;
+    _isSignUp = false;
+    notifyListeners();
   }
 
-  void selectSignUp() {
-    Get.offNamed(
+  void togglePasswordVisibility() {
+    _isPasswordVisible = !_isPasswordVisible;
+    notifyListeners();
+  }
+
+  void selectSignUp(BuildContext context) {
+    Navigator.pushReplacementNamed(
+      context,
       AppRoutes.signUp,
-      arguments: role,
+      arguments: _role,
     );
   }
 
-  void goToForgotPassword() {
-    Get.toNamed(
+  void goToForgotPassword(BuildContext context) {
+    Navigator.pushNamed(
+      context,
       AppRoutes.forgetPassword,
-      arguments: role,
+      arguments: _role,
     );
   }
 
-  void signIn() {
+  Future<void> signIn(BuildContext context, AuthProvider authProvider) async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     if (email.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter your email address',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.card,
-        colorText: AppColors.white,
-      );
+      _showSnackbar(context, 'Please enter your email address', isError: true);
       return;
     }
 
     if (password.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter your password',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.card,
-        colorText: AppColors.white,
-      );
+      _showSnackbar(context, 'Please enter your password', isError: true);
       return;
     }
 
-    debugPrint('Executing ${isSignUp.value ? "Sign Up" : "Sign In"} for role: $role');
-    debugPrint('Email: $email, Password length: ${password.length}');
+    _isLoading = true;
+    notifyListeners();
 
-    if (isBusiness) {
-      Get.offAllNamed(AppRoutes.businessDashboard);
+    final response = await authProvider.login(
+      email: email,
+      password: password,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+
+    if (!context.mounted) return;
+
+    if (response.success) {
+      final roleStr = (authProvider.isBusinessOwner || isBusiness) ? 'BUSINESS_OWNER' : 'PROMOTER';
+      await StorageService.saveRole(roleStr);
+      if (!context.mounted) return;
+      _showSnackbar(context, 'Logged in successfully!', isError: false);
+      if (authProvider.isBusinessOwner || isBusiness) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.businessDashboard,
+          (route) => false,
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (route) => false,
+        );
+      }
     } else {
-      Get.offAllNamed(AppRoutes.home);
+      final msg = response.message.toLowerCase();
+      final isUnverified = (response.raw?['data'] is Map &&
+              response.raw?['data']['isUnverified'] == true) ||
+          msg.contains('verify');
+
+      if (isUnverified) {
+        final targetRole = isBusiness || authProvider.isBusinessOwner
+            ? AuthRole.business
+            : AuthRole.promoter;
+
+        _showSnackbar(
+          context,
+          'Please verify your email. A verification code has been sent.',
+          isError: true,
+        );
+        Get.toNamed(
+          AppRoutes.sendEmail,
+          arguments: {
+            'role': targetRole,
+            'email': email,
+          },
+        );
+        return;
+      }
+
+      _showSnackbar(context, response.message, isError: true);
     }
   }
 
-  void continueWithGoogle() {
-    debugPrint('Continue with Google for role: $role');
+  void continueWithGoogle(BuildContext context) {
     if (isBusiness) {
-      Get.offAllNamed(AppRoutes.businessDashboard);
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.businessDashboard, (r) => false);
     } else {
-      Get.offAllNamed(AppRoutes.home);
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (r) => false);
     }
   }
 
-  void continueWithApple() {
-    debugPrint('Continue with Apple for role: $role');
+  void continueWithApple(BuildContext context) {
     if (isBusiness) {
-      Get.offAllNamed(AppRoutes.businessDashboard);
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.businessDashboard, (r) => false);
     } else {
-      Get.offAllNamed(AppRoutes.home);
+      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (r) => false);
     }
+  }
+
+  void _showSnackbar(BuildContext context, String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: isError ? Colors.red.shade900 : Colors.green.shade800,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
-  void onClose() {
+  void dispose() {
     emailController.dispose();
     passwordController.dispose();
-    super.onClose();
+    super.dispose();
   }
 }

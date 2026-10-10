@@ -24,9 +24,12 @@ class HomeScreen extends GetView<HomeController> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: controller.fetchHomeData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─────────────────────────────
@@ -248,8 +251,25 @@ class HomeScreen extends GetView<HomeController> {
 
               const SizedBox(height: 12),
 
-              Obx(
-                () => Column(
+              Obx(() {
+                if (controller.recentReferrals.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 0.8),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'No referrals yet. Share a deal to earn rewards!',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                  );
+                }
+                return Column(
                   children: controller.recentReferrals.map((referral) {
                     return RecentReferralTile(
                       referral: referral,
@@ -262,12 +282,13 @@ class HomeScreen extends GetView<HomeController> {
                       },
                     );
                   }).toList(),
-                ),
-              ),
+                );
+              }),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

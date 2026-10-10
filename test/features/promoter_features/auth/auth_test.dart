@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:elineuque/core/enums/auth_role.dart';
 import 'package:elineuque/features/promoter_features/auth/controllers/forget_pass_controller.dart';
 import 'package:elineuque/features/promoter_features/auth/controllers/role_select_controller.dart';
@@ -10,15 +9,6 @@ import 'package:elineuque/app/theme/theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    Get.testMode = true;
-    Get.reset();
-  });
-
-  tearDown(() {
-    Get.reset();
-  });
 
   group('RoleSelectionController Tests', () {
     test('RoleSelectionController contains two roles with correct AuthRoles', () {
@@ -38,7 +28,6 @@ void main() {
   group('SignInController Tests', () {
     test('SignInController initializes with promoter role by default', () {
       final controller = SignInController();
-      Get.put(controller);
 
       expect(controller.role, AuthRole.promoter);
       expect(controller.isBusiness, false);
@@ -48,20 +37,18 @@ void main() {
 
     test('SignInController toggles password visibility', () {
       final controller = SignInController();
-      Get.put(controller);
 
-      expect(controller.isPasswordVisible.value, false);
+      expect(controller.isPasswordVisible, false);
       controller.togglePasswordVisibility();
-      expect(controller.isPasswordVisible.value, true);
+      expect(controller.isPasswordVisible, true);
       controller.togglePasswordVisibility();
-      expect(controller.isPasswordVisible.value, false);
+      expect(controller.isPasswordVisible, false);
     });
   });
 
   group('SignUpController Tests', () {
     test('SignUpController adapts dynamically for Promoter role', () {
       final controller = SignUpController();
-      Get.put(controller);
 
       expect(controller.role, AuthRole.promoter);
       expect(controller.isBusiness, false);
@@ -72,7 +59,6 @@ void main() {
     });
 
     test('SignUpController adapts dynamically for Business role', () {
-      Get.parameters = {};
       final controller = SignUpController();
       controller.role = AuthRole.business;
 
@@ -85,13 +71,12 @@ void main() {
 
     test('SignUpController toggles password visibility', () {
       final controller = SignUpController();
-      Get.put(controller);
 
-      expect(controller.isPasswordVisible.value, false);
+      expect(controller.isPasswordVisible, false);
       controller.togglePasswordVisibility();
-      expect(controller.isPasswordVisible.value, true);
+      expect(controller.isPasswordVisible, true);
       controller.togglePasswordVisibility();
-      expect(controller.isPasswordVisible.value, false);
+      expect(controller.isPasswordVisible, false);
     });
   });
 
