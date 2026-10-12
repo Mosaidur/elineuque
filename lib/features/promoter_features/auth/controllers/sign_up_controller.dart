@@ -23,8 +23,8 @@ class SignUpController extends ChangeNotifier {
 
   String get accountTitle => isBusiness ? 'Business Account' : 'Promoter Account';
   String get nameLabel => isBusiness ? 'Business Name' : 'Full Name';
-  String get nameHint => isBusiness ? 'FitZone Gym' : 'Devon Rivera';
-  IconData get nameIcon => isBusiness ? Icons.business_outlined : Icons.mail_outline;
+  String get nameHint => isBusiness ? 'e.g. FitZone Health Club' : 'e.g. Alex Morgan';
+  IconData get nameIcon => isBusiness ? Icons.storefront_outlined : Icons.person_outline_rounded;
   Color get primaryColor => isBusiness ? AppColors.businessPrimary : AppColors.promoterPrimary;
 
   void initRole(AuthRole role) {

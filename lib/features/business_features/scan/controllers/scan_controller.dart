@@ -5,6 +5,7 @@ import '../../../../app/routes/routes.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/qr_verification_result_model.dart';
+import '../views/widgets/live_qr_scanner_sheet.dart';
 
 class ScanController extends ChangeNotifier {
   int _selectedNavIndex = 2; // Scan tab is index 2
@@ -24,8 +25,28 @@ class ScanController extends ChangeNotifier {
   final spendAmountController = TextEditingController(text: '50');
   QrVerificationResultModel? verificationResult;
 
-  int _codeIndex = 0;
-  final sampleCodes = const ['DEVON-X7K', 'ALICIA-992', 'JORDAN-481', 'FITZONE-108'];
+  /// Helper to extract clean referral code from raw QR payload (which may be a URL or raw text)
+  String parseReferralCode(String raw) {
+    raw = raw.trim();
+    try {
+      final uri = Uri.tryParse(raw);
+      if (uri != null) {
+        if (uri.queryParameters.containsKey('code')) {
+          return uri.queryParameters['code']!.trim().toUpperCase();
+        }
+        if (uri.queryParameters.containsKey('ref')) {
+          return uri.queryParameters['ref']!.trim().toUpperCase();
+        }
+        if (uri.pathSegments.isNotEmpty) {
+          final last = uri.pathSegments.last.trim();
+          if (last.isNotEmpty && last.length <= 30 && !last.contains('.')) {
+            return last.toUpperCase();
+          }
+        }
+      }
+    } catch (_) {}
+    return raw.toUpperCase();
+  }
 
   void requestCameraPermission(BuildContext context) {
     _isCameraPermissionGranted = true;
@@ -33,30 +54,50 @@ class ScanController extends ChangeNotifier {
     _showSnackbar(context, 'Camera access granted for QR scanning.');
   }
 
-  Future<void> startScan(BuildContext context) async {
-    if (!_isCameraPermissionGranted) {
-      requestCameraPermission(context);
-    }
-
+  /// Opens the live device camera QR scanner sheet
+  Future<void> openLiveScanner(BuildContext context) async {
     _isScanning = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 900));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LiveQrScannerSheet(
+          onScanned: (rawCode) {
+            handleScannedCode(context, rawCode);
+          },
+        ),
+      ),
+    );
 
-    final detectedCode = sampleCodes[_codeIndex % sampleCodes.length];
-    _codeIndex++;
-
-    manualCodeController.text = detectedCode;
     _isScanning = false;
     notifyListeners();
+  }
 
-    if (context.mounted) {
-      _showSnackbar(context, 'QR Code Scanned: $detectedCode');
-    }
+  /// Starts the scan workflow (opens camera viewfinder)
+  Future<void> startScan(BuildContext context) async {
+    await openLiveScanner(context);
+  }
+
+  /// Handles code captured from the camera or external scanner
+  void handleScannedCode(BuildContext context, String rawCode) {
+    final cleanCode = parseReferralCode(rawCode);
+    manualCodeController.text = cleanCode;
+    notifyListeners();
+
+    _showSnackbar(context, 'QR Code Scanned: $cleanCode');
+
+    // Automatically trigger verification on detection
+    verifyCode(context);
+  }
+
+  /// Quick fill for testing
+  void setManualCode(String code) {
+    manualCodeController.text = code.trim().toUpperCase();
+    notifyListeners();
   }
 
   Future<void> verifyCode(BuildContext context) async {
-    final code = manualCodeController.text.trim();
+    final code = manualCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
       _showSnackbar(context, 'Please scan a QR or enter a referral code.', isError: true);
       return;
@@ -114,10 +155,10 @@ class ScanController extends ChangeNotifier {
       verificationResult = QrVerificationResultModel(
         businessName: businessName,
         timestamp: formattedDate,
-        referralCode: code.toUpperCase(),
+        referralCode: code,
         promoterName: promoterName,
         promoterInitials: initials,
-        customerType: resData['customerIdentifier']?.toString() ?? 'Walk-in Visit',
+        customerType: resData['customerIdentifier']?.toString() ?? 'Walk-in Customer',
         rewardAmount: rewardAmount,
         isRewardPaid: true,
       );
@@ -126,34 +167,17 @@ class ScanController extends ChangeNotifier {
       notifyListeners();
 
       if (context.mounted) {
-        _showSnackbar(context, 'Referral code $code verified successfully!');
+        _showSnackbar(context, 'Referral code $code verified & recorded successfully!');
       }
     } else {
-      // If code not in backend database, fallback with graceful preview so user can test UI
-      final fallbackInitials = code.contains('ALICIA') ? 'AM' : (code.contains('JORDAN') ? 'JT' : 'DR');
-      final fallbackPromoter = code.contains('ALICIA') ? 'Alicia M.' : (code.contains('JORDAN') ? 'Jordan T.' : 'Devon R.');
-
-      verificationResult = QrVerificationResultModel(
-        businessName: 'FitZone Gym',
-        timestamp: 'Just now',
-        referralCode: code.toUpperCase(),
-        promoterName: fallbackPromoter,
-        promoterInitials: fallbackInitials,
-        customerType: 'Walk-in Visit',
-        rewardAmount: '\$40',
-        isRewardPaid: false,
-      );
-
-      _isVerified = true;
+      _isVerified = false;
       notifyListeners();
 
       if (context.mounted) {
-        _showSnackbar(
-          context,
-          response.message.isNotEmpty
-              ? '${response.message} (Simulated verification shown)'
-              : 'Simulated verification shown.',
-        );
+        final errorMsg = response.message.isNotEmpty
+            ? response.message
+            : 'Referral code not found or invalid for this business.';
+        _showSnackbar(context, errorMsg, isError: true);
       }
     }
   }
@@ -210,7 +234,7 @@ class ScanController extends ChangeNotifier {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         backgroundColor: isError ? Colors.redAccent : const Color(0xFF0F9D58),
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

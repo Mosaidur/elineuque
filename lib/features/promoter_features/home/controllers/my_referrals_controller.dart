@@ -5,6 +5,7 @@ import '../../../../app/routes/routes.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/referral_activity_model.dart';
+import '../../profile/views/widgets/withdrawal_modal.dart';
 
 class MyReferralsController extends GetxController {
   // Navigation
@@ -129,11 +130,16 @@ class MyReferralsController extends GetxController {
   }
 
   void onWithdraw() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Withdrawal Request',
-        'Available balance: ${totalEarned.value} will be processed to your payout account.',
-        snackPosition: SnackPosition.BOTTOM,
+    if (Get.context != null) {
+      final availableAmount = double.tryParse(totalEarned.value.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+      showModalBottomSheet(
+        context: Get.context!,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => WithdrawalModal(
+          availableBalance: availableAmount,
+          onSuccess: () => fetchReferralActivities(),
+        ),
       );
     }
   }

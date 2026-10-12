@@ -43,6 +43,8 @@ class ProfileScreen extends GetView<ProfileController> {
                   name: controller.fullName.value,
                   handle: controller.handle.value,
                   rank: controller.rankText.value,
+                  avatarUrl: controller.profilePictureUrl.value,
+                  localImagePath: controller.localImagePath.value,
                   isEditing: controller.isEditing.value,
                   onEditTap: controller.openEdit,
                   onCancelTap: controller.cancelEdit,

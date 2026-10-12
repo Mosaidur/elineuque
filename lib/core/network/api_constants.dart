@@ -48,7 +48,16 @@ class ApiConstants {
   static const String discoverBusinesses = '/users/discover-businesses';
   static const String leaderboard = '/users/leaderboard';
   static const String myBadges = '/users/my-badges';
+  // Community Posts
   static const String posts = '/posts';
   static String likePost(String id) => '/posts/$id/like';
   static String postComments(String id) => '/posts/$id/comments';
+
+  // Cash Outs / Withdrawals
+  static const String cashouts = '/cashouts';
+
+  // Notifications
+  static const String notifications = '/notifications';
+  static String markNotificationRead(String id) => '/notifications/$id/read';
+  static const String markAllNotificationsRead = '/notifications/read-all';
 }

@@ -131,7 +131,7 @@ class _SignInScreenState extends State<SignInScreen> {
               // ─────────────────────────────
               AuthInputField(
                 label: 'Email',
-                hint: 'you@example.com',
+                hint: 'name@example.com',
                 icon: Icons.mail_outline,
                 controller: signInProvider.emailController,
               ),
@@ -143,7 +143,7 @@ class _SignInScreenState extends State<SignInScreen> {
               // ─────────────────────────────
               AuthInputField(
                 label: 'Password',
-                hint: 'Your password',
+                hint: 'Enter your password',
                 icon: Icons.lock_outline,
                 controller: signInProvider.passwordController,
                 obscureText: !signInProvider.isPasswordVisible,

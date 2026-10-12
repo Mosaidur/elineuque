@@ -315,6 +315,105 @@ class ApiClient {
     }
   }
 
+  static Future<ApiResponse<dynamic>> delete(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool withAuth = true,
+  }) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final headers = _getHeaders(withAuth: withAuth);
+    _logRequest(method: 'DELETE', url: url, headers: headers, body: body);
+
+    final stopwatch = Stopwatch()..start();
+    try {
+      final response = await http
+          .delete(
+            url,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      stopwatch.stop();
+      _logResponse(
+        method: 'DELETE',
+        url: url,
+        statusCode: response.statusCode,
+        duration: stopwatch.elapsed,
+        responseBody: response.body,
+      );
+
+      return _handleResponse(response);
+    } catch (e) {
+      stopwatch.stop();
+      _logError(method: 'DELETE', url: url, error: e, duration: stopwatch.elapsed);
+      return ApiResponse(
+        success: false,
+        message: 'Network error: Unable to connect to server.',
+        statusCode: 0,
+      );
+    }
+  }
+
+  static Future<ApiResponse<dynamic>> patchMultipart(
+    String endpoint, {
+    Map<String, String>? fields,
+    String? fileField,
+    String? filePath,
+    List<int>? fileBytes,
+    String? fileName,
+    bool withAuth = true,
+  }) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      final request = http.MultipartRequest('PATCH', url);
+
+      if (withAuth) {
+        final token = StorageService.getAccessToken();
+        if (token != null && token.isNotEmpty) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+      }
+      request.headers['Accept'] = 'application/json';
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      if (fileField != null) {
+        if (filePath != null && filePath.isNotEmpty) {
+          request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+        } else if (fileBytes != null && fileName != null) {
+          request.files.add(http.MultipartFile.fromBytes(fileField, fileBytes, filename: fileName));
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      stopwatch.stop();
+
+      _logResponse(
+        method: 'PATCH (MULTIPART)',
+        url: url,
+        statusCode: response.statusCode,
+        duration: stopwatch.elapsed,
+        responseBody: response.body,
+      );
+
+      return _handleResponse(response);
+    } catch (e) {
+      stopwatch.stop();
+      _logError(method: 'PATCH (MULTIPART)', url: url, error: e, duration: stopwatch.elapsed);
+      return ApiResponse(
+        success: false,
+        message: 'Network error: $e',
+        statusCode: 0,
+      );
+    }
+  }
+
   static ApiResponse<dynamic> _handleResponse(http.Response response) {
     try {
       final decoded = jsonDecode(response.body);

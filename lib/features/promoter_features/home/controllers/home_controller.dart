@@ -7,6 +7,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/recent_referral_model.dart';
 import '../models/spotlight_deal_model.dart';
+import '../../profile/views/widgets/withdrawal_modal.dart';
 
 class HomeController extends GetxController {
   final userName = 'Promoter'.obs;
@@ -157,12 +158,8 @@ class HomeController extends GetxController {
 
   void onNotificationTap() {
     hasUnreadNotifications.value = false;
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Notifications',
-        'All caught up! No unread notifications.',
-        snackPosition: SnackPosition.TOP,
-      );
+    if (Get.key.currentState != null) {
+      Get.toNamed(AppRoutes.notifications);
     }
   }
 
@@ -179,8 +176,17 @@ class HomeController extends GetxController {
   }
 
   void onWithdraw() {
-    if (Get.key.currentState != null) {
-      Get.toNamed(AppRoutes.myReferrals);
+    if (Get.context != null) {
+      final availableAmount = double.tryParse(totalEarnings.value.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 21.0;
+      showModalBottomSheet(
+        context: Get.context!,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => WithdrawalModal(
+          availableBalance: availableAmount,
+          onSuccess: () => fetchHomeData(),
+        ),
+      );
     }
   }
 

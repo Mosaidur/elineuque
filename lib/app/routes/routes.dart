@@ -7,6 +7,7 @@ import '../../features/business_features/dashboard/views/business_dashboard_scre
 import '../../features/business_features/profile/views/business_profile_screen.dart';
 import '../../features/business_features/referral/views/business_referral_screen.dart';
 import '../../features/business_features/scan/views/scan_screen.dart';
+import '../../features/notifications/views/notifications_screen.dart';
 import '../../features/promoter_features/auth/views/forget_pass_screen.dart';
 import '../../features/promoter_features/auth/views/role_select_screen.dart';
 import '../../features/promoter_features/auth/views/send_email_screen.dart';
@@ -48,6 +49,7 @@ class AppRoutes {
   static const String businessCampaigns = '/business_campaigns';
   static const String businessCampaignDetails = '/business_campaign_details';
   static const String businessProfile = '/business_profile';
+  static const String notifications = '/notifications';
 
   static final pages = [
     GetPage(
@@ -151,6 +153,11 @@ class AppRoutes {
     GetPage(
       name: businessProfile,
       page: () => const BusinessProfileScreen(),
+    ),
+
+    GetPage(
+      name: notifications,
+      page: () => const NotificationsScreen(),
     ),
   ];
 }

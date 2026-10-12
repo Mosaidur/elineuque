@@ -65,10 +65,10 @@ class ScanScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // ── Camera Viewfinder ──
+          // ── Camera Viewfinder (Live embedded camera scanner) ──
           CameraViewfinderCard(
-            isScanning: controller.isScanning,
-            onTapScan: () => controller.startScan(context),
+            isVerifying: controller.isVerifying,
+            onScanned: (code) => controller.handleScannedCode(context, code),
           ),
 
           const SizedBox(height: 20),
@@ -113,6 +113,76 @@ class ScanScreen extends StatelessWidget {
           ManualCodeInputCard(
             controller: controller.manualCodeController,
             onVerify: () => controller.verifyCode(context),
+          ),
+
+          const SizedBox(height: 14),
+
+          // ── Quick Test Chips ──
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF071F33),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF133A59), width: 0.8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.bolt_rounded, color: Color(0xFFFFB74D), size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'Quick Test Referral Codes',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    'APEX-PROMO-101',
+                    'DEVON-X7K',
+                    'RIMON-VIP-77',
+                    'FITZONE-108',
+                  ].map((sampleCode) {
+                    final isSelected = controller.manualCodeController.text == sampleCode;
+                    return GestureDetector(
+                      onTap: () => controller.setManualCode(sampleCode),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.businessPrimary
+                              : const Color(0xFF0A2E4C),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.businessPrimary
+                                : const Color(0xFF1B4E75),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          sampleCode,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : const Color(0xFF90CAF9),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 16),

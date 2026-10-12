@@ -148,12 +148,7 @@ class BusinessDashboardController extends ChangeNotifier {
   }
 
   void onNotifications(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('You have $unreadNotificationsCount new business alerts.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    Navigator.pushNamed(context, AppRoutes.notifications);
   }
 
   void onNavTap(BuildContext context, int index) {

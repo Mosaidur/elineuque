@@ -54,7 +54,7 @@ void main() {
       expect(controller.isBusiness, false);
       expect(controller.accountTitle, 'Promoter Account');
       expect(controller.nameLabel, 'Full Name');
-      expect(controller.nameHint, 'Devon Rivera');
+      expect(controller.nameHint, 'e.g. Alex Morgan');
       expect(controller.primaryColor, AppColors.promoterPrimary);
     });
 
@@ -65,7 +65,7 @@ void main() {
       expect(controller.isBusiness, true);
       expect(controller.accountTitle, 'Business Account');
       expect(controller.nameLabel, 'Business Name');
-      expect(controller.nameHint, 'FitZone Gym');
+      expect(controller.nameHint, 'e.g. FitZone Health Club');
       expect(controller.primaryColor, AppColors.businessPrimary);
     });
 

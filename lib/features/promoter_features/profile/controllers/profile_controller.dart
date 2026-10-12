@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/routes/routes.dart';
 import '../../../../core/network/api_client.dart';
@@ -7,6 +8,7 @@ import '../../../../core/network/api_constants.dart';
 import '../../../../core/services/storage_service.dart';
 import '../models/leaderboard_user_model.dart';
 import '../models/profile_badge_model.dart';
+import '../views/widgets/withdrawal_modal.dart';
 
 class ProfileController extends GetxController {
   final selectedNavIndex = 4.obs; // Profile tab is index 4
@@ -22,6 +24,10 @@ class ProfileController extends GetxController {
   final email = ''.obs;
   final phone = ''.obs;
   final bio = ''.obs;
+  final profilePictureUrl = ''.obs;
+  final localImagePath = ''.obs;
+  final isUploadingPhoto = false.obs;
+  final rawAvailableBalance = 0.0.obs;
 
   // Stats
   final earnedAmount = '\$0'.obs;
@@ -120,6 +126,11 @@ class ProfileController extends GetxController {
             ? (h.startsWith('@') ? h : '@$h')
             : '@${fullName.value.toLowerCase().replaceAll(' ', '_')}';
 
+        final pic = d['profilePicture']?.toString() ?? d['avatar']?.toString() ?? '';
+        if (pic.isNotEmpty) {
+          profilePictureUrl.value = pic;
+        }
+
         fullNameCtrl.text = fullName.value;
         emailCtrl.text = email.value;
         phoneCtrl.text = phone.value;
@@ -135,6 +146,7 @@ class ProfileController extends GetxController {
         if (summary != null) {
           final total = (summary['totalEarned'] as num?)?.toDouble() ?? 0.0;
           final released = (summary['releasedRewards'] as num?)?.toDouble() ?? 0.0;
+          rawAvailableBalance.value = released;
           earnedAmount.value = '\$${total.toStringAsFixed(0)}';
           availableWallet.value = '\$${released.toStringAsFixed(2)}';
         }
@@ -245,22 +257,120 @@ class ProfileController extends GetxController {
     }
   }
 
-  void onChangePhoto() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Change Photo',
-        'Profile avatar update will be available in future release.',
-        snackPosition: SnackPosition.BOTTOM,
+  Future<void> onChangePhoto() async {
+    final ctx = Get.context;
+    if (ctx == null) return;
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: ctx,
+      backgroundColor: const Color(0xFF061B2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Update Profile Photo',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_rounded, color: Color(0xFF7E9EFF)),
+                title: const Text('Take a Photo', style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.pop(bCtx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFFC7F556)),
+                title: const Text('Choose from Gallery', style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.pop(bCtx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
       );
+
+      if (pickedFile == null) return;
+
+      localImagePath.value = pickedFile.path;
+      isUploadingPhoto.value = true;
+
+      final res = await ApiClient.patchMultipart(
+        ApiConstants.userProfile,
+        fileField: 'profilePicture',
+        filePath: pickedFile.path,
+        withAuth: true,
+      );
+
+      isUploadingPhoto.value = false;
+
+      if (res.success) {
+        if (res.data is Map && res.data['profilePicture'] != null) {
+          profilePictureUrl.value = res.data['profilePicture'].toString();
+        }
+        if (Get.context != null && Get.key.currentState?.overlay != null) {
+          Get.snackbar(
+            'Photo Updated',
+            'Your profile avatar has been saved successfully.',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFF163E24),
+            colorText: const Color(0xFF52E385),
+          );
+        }
+      } else {
+        if (Get.context != null && Get.key.currentState?.overlay != null) {
+          Get.snackbar(
+            'Upload Notice',
+            res.message,
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFF3B151E),
+            colorText: const Color(0xFFFF8B9C),
+          );
+        }
+      }
+    } catch (e) {
+      isUploadingPhoto.value = false;
+      debugPrint('Error picking or uploading profile photo: $e');
     }
   }
 
   void onWithdraw() {
-    if (Get.context != null && Get.key.currentState?.overlay != null) {
-      Get.snackbar(
-        'Withdraw Balance',
-        '${availableWallet.value} is being processed to your payout account.',
-        snackPosition: SnackPosition.BOTTOM,
+    final ctx = Get.context;
+    if (ctx != null) {
+      WithdrawalModal.show(
+        context: ctx,
+        availableBalance: rawAvailableBalance.value,
+        onSuccess: () {
+          fetchProfileData();
+        },
       );
     }
   }

@@ -1,11 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../../../app/theme/theme.dart';
+import '../../../../../core/network/api_constants.dart';
 
 class ProfileHeader extends StatelessWidget {
   final String name;
   final String handle;
   final String rank;
+  final String? avatarUrl;
+  final String? localImagePath;
   final bool isEditing;
   final VoidCallback onEditTap;
   final VoidCallback onCancelTap;
@@ -17,6 +21,8 @@ class ProfileHeader extends StatelessWidget {
     required this.name,
     required this.handle,
     required this.rank,
+    this.avatarUrl,
+    this.localImagePath,
     required this.isEditing,
     required this.onEditTap,
     required this.onCancelTap,
@@ -45,11 +51,35 @@ class ProfileHeader extends StatelessWidget {
                     width: 1.5,
                   ),
                 ),
-                child: const Center(
-                  child: Text(
-                    '🧑',
-                    style: TextStyle(fontSize: 32),
-                  ),
+                child: ClipOval(
+                  child: localImagePath != null && localImagePath!.isNotEmpty
+                      ? Image.file(
+                          File(localImagePath!),
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.cover,
+                        )
+                      : (avatarUrl != null && avatarUrl!.isNotEmpty
+                          ? Image.network(
+                              avatarUrl!.startsWith('http')
+                                  ? avatarUrl!
+                                  : '${ApiConstants.baseUrl}/uploads/$avatarUrl',
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Text(
+                                  '🧑',
+                                  style: TextStyle(fontSize: 32),
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child: Text(
+                                '🧑',
+                                style: TextStyle(fontSize: 32),
+                              ),
+                            )),
                 ),
               ),
               Positioned(

@@ -143,9 +143,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               // EMAIL
               // ─────────────────────────────
               AuthInputField(
-                label: 'Email',
-                hint: 'you@example.com',
-                icon: Icons.lock_outline,
+                label: signUpProvider.isBusiness ? 'Business Email' : 'Email Address',
+                hint: signUpProvider.isBusiness ? 'contact@business.com' : 'name@example.com',
+                icon: Icons.email_outlined,
                 controller: signUpProvider.emailController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
@@ -157,8 +157,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               // PHONE
               // ─────────────────────────────
               AuthInputField(
-                label: 'Phone',
-                hint: '+1 555 000 0000',
+                label: 'Phone Number',
+                hint: '+1 (555) 000-0000',
                 icon: Icons.phone_outlined,
                 controller: signUpProvider.phoneController,
                 keyboardType: TextInputType.phone,
@@ -172,7 +172,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               // ─────────────────────────────
               AuthInputField(
                 label: 'Password',
-                hint: 'Min 8 chars (e.g. Elinque@123)',
+                hint: 'Create a secure password',
                 icon: Icons.lock_outline,
                 controller: signUpProvider.passwordController,
                 obscureText: !signUpProvider.isPasswordVisible,
